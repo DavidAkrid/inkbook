@@ -1,0 +1,518 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0f0f0f;
+  --surface: #1a1a1a;
+  --surface2: #242424;
+  --border: #333;
+  --text: #e8e8e8;
+  --text-muted: #888;
+  --accent: #9b7fd4;
+  --accent-hover: #b59ae0;
+  --danger: #e05252;
+  --success: #52a852;
+  --radius: 8px;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 40px 20px 80px;
+}
+
+h1 {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  margin-bottom: 6px;
+}
+
+h2 {
+  font-size: 17px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.subtitle {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin-bottom: 32px;
+}
+
+/* Cards */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin-bottom: 20px;
+}
+
+/* Form */
+.form-group {
+  margin-bottom: 18px;
+}
+
+label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="number"],
+input[type="file"],
+textarea,
+select {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 15px;
+  padding: 10px 12px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: var(--accent);
+}
+
+textarea {
+  resize: vertical;
+  min-height: 90px;
+}
+
+input[type="file"] {
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 20px;
+  transition: background 0.15s, opacity 0.15s;
+  text-decoration: none;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #111;
+}
+
+.btn-primary:hover { background: var(--accent-hover); }
+
+.btn-secondary {
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover { background: var(--border); }
+
+.btn-danger {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+}
+
+.btn-danger:hover { background: rgba(224, 82, 82, 0.1); }
+
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-full { width: 100%; }
+
+/* Badges */
+.badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.badge-pending { background: rgba(155, 127, 212, 0.15); color: var(--accent); }
+.badge-booked { background: rgba(82, 168, 82, 0.15); color: var(--success); }
+.badge-expired { background: rgba(136, 136, 136, 0.15); color: var(--text-muted); }
+
+/* Request list item */
+.request-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.request-item:last-child { border-bottom: none; }
+
+.request-meta { flex: 1; min-width: 0; }
+.request-name { font-weight: 600; margin-bottom: 2px; }
+.request-detail { font-size: 13px; color: var(--text-muted); margin-bottom: 6px; }
+
+.request-link {
+  font-size: 12px;
+  color: var(--accent);
+  word-break: break-all;
+  text-decoration: none;
+  font-family: monospace;
+}
+
+.request-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+/* Copy button feedback */
+.copied { color: var(--success) !important; }
+
+/* Slot button base (shared) */
+.slot-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 12px;
+  height: 30px;           /* fixed — must match JS SLOT_H constant */
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, background 0.15s;
+  width: 100%;
+}
+
+/* Merged block for directly-booked time (artist has an event in this window) */
+.busy-block {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  opacity: 0.5;
+  /* height set inline based on slot count × SLOT_H + gap */
+}
+
+.slot-btn:hover { border-color: var(--accent); }
+.slot-btn.selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #111;
+}
+.slot-btn:disabled {
+  opacity: 0.2;
+  cursor: default;
+  border-color: transparent;
+}
+
+/* Span highlight — applied to the full appointment block on hover */
+.slot-btn.span-highlight {
+  background: rgba(155, 127, 212, 0.15);
+  border-color: rgba(155, 127, 212, 0.5);
+  color: var(--accent);
+}
+.slot-btn.span-highlight:disabled {
+  opacity: 0.35;
+  border-color: rgba(155, 127, 212, 0.25);
+}
+
+/* Week calendar nav */
+.week-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  gap: 8px;
+}
+
+.week-nav-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: center;
+  flex: 1;
+}
+
+/* Scrollable wrapper for the 7-column grid on narrow screens */
+.week-grid-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+}
+
+/* 7-column week grid */
+.week-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(72px, 1fr));
+  gap: 4px;
+  min-width: 520px;
+}
+
+/* One column per day */
+.week-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  height: 100%;
+}
+
+/* Day column header (e.g. "Mon / 23") */
+.week-day-header {
+  text-align: center;
+  padding: 8px 4px;
+  background: var(--surface2);
+  border-radius: 6px;
+  border: 1px solid transparent;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  line-height: 1.5;
+}
+
+.week-day-header.has-slots { color: var(--text); }
+
+.week-day-header.is-today {
+  color: var(--accent);
+  border-color: rgba(155, 127, 212, 0.4);
+}
+
+/* Placeholder when a day has no available slots */
+.week-no-slots {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  opacity: 0.35;
+  padding: 6px 0;
+}
+
+/* Full-column state blocks (past / not working) */
+.day-state-block {
+  flex: 1;
+  border-radius: 5px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 10px;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1.4;
+}
+
+.day-state-past {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  opacity: 0.25;
+}
+
+.day-state-off {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+/* Info box */
+.info-box {
+  background: var(--surface2);
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+}
+
+.info-box-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+/* Alert */
+.alert {
+  border-radius: 6px;
+  font-size: 14px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+
+.alert-error { background: rgba(224, 82, 82, 0.1); border: 1px solid rgba(224, 82, 82, 0.3); color: #ff9999; }
+.alert-success { background: rgba(82, 168, 82, 0.1); border: 1px solid rgba(82, 168, 82, 0.3); color: #99dd99; }
+
+/* Confirmation screen */
+.confirm-icon {
+  font-size: 48px;
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.confirm-details {
+  background: var(--surface2);
+  border-radius: 6px;
+  padding: 16px;
+  margin: 16px 0;
+}
+
+.confirm-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.confirm-row:last-child { border-bottom: none; }
+.confirm-row span:first-child { color: var(--text-muted); }
+.confirm-row span:last-child { font-weight: 600; }
+
+/* Loading spinner */
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-muted);
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin: 0 auto 12px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Reference image preview */
+.image-preview {
+  max-width: 100%;
+  max-height: 300px;
+  border-radius: 6px;
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  display: block;
+}
+
+/* Header nav */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 32px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.logo { font-weight: 700; font-size: 18px; }
+.logo span { color: var(--accent); }
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  width: 100%;
+  max-width: 480px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-body {
+  padding: 24px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px 20px;
+  border-top: 1px solid var(--border);
+}
+
+/* Day-off checkbox pills */
+.day-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
+  user-select: none;
+}
+
+.day-checkbox input[type=checkbox] {
+  width: auto;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* Empty state */
+.empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+  font-size: 14px;
+}

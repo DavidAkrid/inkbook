@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>InkBook — Dashboard</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="container">
+
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">Ink<span>Book</span></div>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span id="userEmail" style="font-size: 13px; color: var(--text-muted);"></span>
+        <button onclick="openSettings()" class="btn btn-secondary" style="font-size: 13px; padding: 7px 14px;">
+          Settings
+        </button>
+        <button onclick="signOut()" class="btn btn-secondary" style="font-size: 13px; padding: 7px 14px;">
+          Sign out
+        </button>
+      </div>
+    </div>
+
+    <!-- Calendar connect banner (shown when calendar not connected) -->
+    <div id="calendarBanner" style="display:none;" class="info-box" style="margin-bottom: 24px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+        <div>
+          <div class="info-box-label">Action Required</div>
+          <div style="font-size: 14px; margin-top: 2px;">Connect your Google Calendar to start generating booking links.</div>
+        </div>
+        <button onclick="connectCalendar()" class="btn btn-primary" style="white-space: nowrap; flex-shrink: 0;">
+          Connect Google Calendar
+        </button>
+      </div>
+    </div>
+
+    <!-- Toast notifications -->
+    <div id="toast" style="display:none;" class="alert" style="margin-bottom: 16px;"></div>
+
+    <h1>Create Booking Link</h1>
+    <p class="subtitle">Fill in the details, then send the link to your client.</p>
+
+    <div class="card">
+      <form id="createForm">
+        <div class="form-group">
+          <label for="client_name">Client Name</label>
+          <input type="text" id="client_name" name="client_name" placeholder="e.g. Sarah M." required>
+        </div>
+
+        <div class="form-group">
+          <label for="duration_hours">Appointment Duration</label>
+          <select id="duration_hours" name="duration_hours" required>
+            <option value="">Select duration…</option>
+            <option value="1">1 hour</option>
+            <option value="1.5">1.5 hours</option>
+            <option value="2">2 hours</option>
+            <option value="2.5">2.5 hours</option>
+            <option value="3">3 hours</option>
+            <option value="4">4 hours</option>
+            <option value="5">5 hours</option>
+            <option value="6">6 hours</option>
+            <option value="7">7 hours</option>
+            <option value="8">8 hours</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="notes">Design Notes</label>
+          <textarea id="notes" name="notes" placeholder="Describe the design, placement, style, colors, references discussed, etc."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="expires_in_days">Link Expires In</label>
+          <select id="expires_in_days" name="expires_in_days">
+            <option value="7">7 days</option>
+            <option value="14" selected>14 days</option>
+            <option value="30">30 days</option>
+          </select>
+        </div>
+
+        <div id="formAlert"></div>
+
+        <button type="submit" class="btn btn-primary btn-full" id="submitBtn">
+          Generate Booking Link
+        </button>
+      </form>
+    </div>
+
+    <!-- Result after creation -->
+    <div id="resultCard" class="card" style="display:none;">
+      <h2>Link Created</h2>
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">
+        Share this with your client. It shows only available time slots that fit their full session.
+      </p>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <input type="text" id="resultUrl" readonly style="flex: 1; font-family: monospace; font-size: 13px;">
+        <button class="btn btn-secondary" onclick="copyLink()" id="copyBtn">Copy</button>
+      </div>
+    </div>
+
+    <!-- All booking requests -->
+    <div class="card" style="margin-top: 32px;">
+      <h2>All Booking Requests</h2>
+      <div id="requestsList">
+        <div class="loading">
+          <div class="spinner"></div>
+          Loading…
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="settingsOverlay" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeSettings()">
+    <div class="modal">
+      <div class="modal-header">
+        <span style="font-size: 16px; font-weight: 700;">Scheduling Settings</span>
+        <button onclick="closeSettings()" class="btn btn-secondary" style="padding: 4px 10px; font-size: 18px; line-height: 1;">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Display Name</label>
+          <input type="text" id="settingsDisplayName" placeholder="e.g. Kat Von D (leave blank to use account name)">
+        </div>
+
+        <div class="form-group">
+          <label>Working Hours</label>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <select id="settingsStart" style="flex: 1;"></select>
+            <span style="color: var(--text-muted); font-size: 13px;">to</span>
+            <select id="settingsEnd" style="flex: 1;"></select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Days Off</label>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <label class="day-checkbox"><input type="checkbox" value="0"> Sun</label>
+            <label class="day-checkbox"><input type="checkbox" value="1"> Mon</label>
+            <label class="day-checkbox"><input type="checkbox" value="2"> Tue</label>
+            <label class="day-checkbox"><input type="checkbox" value="3"> Wed</label>
+            <label class="day-checkbox"><input type="checkbox" value="4"> Thu</label>
+            <label class="day-checkbox"><input type="checkbox" value="5"> Fri</label>
+            <label class="day-checkbox"><input type="checkbox" value="6"> Sat</label>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+          <label>Buffer Between Appointments</label>
+          <select id="settingsBuffer">
+            <option value="0">No buffer</option>
+            <option value="15">15 minutes</option>
+            <option value="30">30 minutes</option>
+            <option value="45">45 minutes</option>
+            <option value="60">60 minutes</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button onclick="closeSettings()" class="btn btn-secondary">Cancel</button>
+        <button onclick="saveSettings()" class="btn btn-primary" id="saveSettingsBtn">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script>
+    let supabaseClient;
+    let currentSession;
+
+    // ── Auth ──────────────────────────────────────────────────────────────────
+
+    async function init() {
+      try {
+        const res = await fetch('/api/config');
+        const { supabaseUrl, supabaseAnonKey } = await res.json();
+        supabaseClient = supabase.createClient(supabaseUrl, supabaseAnonKey, {
+          auth: { flowType: 'implicit' },
+        });
+
+        // With implicit flow, Supabase puts tokens in the URL hash (#access_token=...).
+        // The client parses these automatically — no async code exchange needed.
+        // INITIAL_SESSION fires after parsing is complete.
+        const hasOAuthCode = new URLSearchParams(window.location.search).has('code');
+
+        supabaseClient.auth.onAuthStateChange(async (event, session) => {
+          console.log('[auth]', event, session ? 'has session' : 'no session', 'hasOAuthCode:', hasOAuthCode);
+          if (session && !currentSession) {
+            // First valid session — initialize the dashboard
+            currentSession = session;
+            document.getElementById('userEmail').textContent = session.user.email;
+            await loadProfile();
+            handleUrlParams();
+            loadRequests();
+          } else if (session) {
+            // Session refreshed — keep currentSession up to date
+            currentSession = session;
+          } else if (event === 'SIGNED_OUT') {
+            console.log('[auth] SIGNED_OUT — redirecting to /login');
+            window.location.href = '/login';
+          } else if (event === 'INITIAL_SESSION' && !hasOAuthCode) {
+            // No session and no OAuth code in progress — not logged in
+            console.log('[auth] INITIAL_SESSION with no session — redirecting to /login');
+            window.location.href = '/login';
+          }
+          // If hasOAuthCode is true, SIGNED_IN will fire once exchange completes
+        });
+      } catch (err) {
+        console.error('Init error:', err);
+        window.location.href = '/login';
+      }
+    }
+
+    async function signOut() {
+      await supabaseClient.auth.signOut();
+      window.location.href = '/login';
+    }
+
+    function authHeaders() {
+      return { 'Authorization': `Bearer ${currentSession.access_token}` };
+    }
+
+    // ── Profile & Calendar ────────────────────────────────────────────────────
+
+    async function loadProfile() {
+      try {
+        const res = await fetch('/api/requests/profile', { headers: authHeaders() });
+        if (!res.ok) return;
+        const profile = await res.json();
+
+        const banner = document.getElementById('calendarBanner');
+        if (!profile.calendar_connected) {
+          banner.style.display = 'block';
+        } else {
+          banner.style.display = 'none';
+        }
+      } catch (err) {
+        console.warn('Profile load failed:', err.message);
+      }
+    }
+
+    function connectCalendar() {
+      // Browser navigations can't send Authorization headers, so we pass the
+      // JWT as a query param. The server validates it the same way.
+      const token = currentSession.access_token;
+      window.location.href = '/auth/google/calendar?token=' + encodeURIComponent(token);
+    }
+
+    function handleUrlParams() {
+      const params = new URLSearchParams(window.location.search);
+      const calendar = params.get('calendar');
+
+      if (calendar === 'connected') {
+        showToast('Google Calendar connected successfully!', 'success');
+        loadProfile(); // refresh banner
+        // Clean URL
+        window.history.replaceState({}, '', '/');
+      } else if (calendar === 'error') {
+        const reason = params.get('reason') || 'unknown';
+        let msg = 'Failed to connect Google Calendar.';
+        if (reason === 'no_refresh_token') {
+          msg = 'No refresh token received. Please revoke access at myaccount.google.com/permissions and try again.';
+        } else if (reason === 'expired') {
+          msg = 'Authorization request expired. Please try connecting again.';
+        }
+        showToast(msg, 'error');
+        window.history.replaceState({}, '', '/');
+      }
+    }
+
+    // ── Form ──────────────────────────────────────────────────────────────────
+
+    document.getElementById('createForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const btn = document.getElementById('submitBtn');
+      const alertEl = document.getElementById('formAlert');
+      alertEl.innerHTML = '';
+      btn.disabled = true;
+      btn.textContent = 'Creating…';
+
+      try {
+        const res = await fetch('/api/requests', {
+          method: 'POST',
+          headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            client_name: document.getElementById('client_name').value,
+            duration_hours: document.getElementById('duration_hours').value,
+            notes: document.getElementById('notes').value,
+            expires_in_days: document.getElementById('expires_in_days').value,
+          }),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          alertEl.innerHTML = `<div class="alert alert-error">${data.error}</div>`;
+          return;
+        }
+
+        document.getElementById('resultUrl').value = data.booking_url;
+        document.getElementById('resultCard').style.display = 'block';
+        document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        this.reset();
+        loadRequests();
+      } catch (err) {
+        alertEl.innerHTML = `<div class="alert alert-error">Network error: ${err.message}</div>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Generate Booking Link';
+      }
+    });
+
+    // ── Booking requests list ─────────────────────────────────────────────────
+
+    async function loadRequests() {
+      const listEl = document.getElementById('requestsList');
+      try {
+        const res = await fetch('/api/requests', { headers: authHeaders() });
+        const requests = await res.json();
+
+        if (!res.ok) {
+          listEl.innerHTML = `<div class="alert alert-error">${requests.error}</div>`;
+          return;
+        }
+
+        if (!requests.length) {
+          listEl.innerHTML = '<div class="empty">No booking requests yet. Create one above.</div>';
+          return;
+        }
+
+        listEl.innerHTML = requests.map(r => {
+          const created = new Date(r.created_at).toLocaleDateString('en-US', {
+            month: 'short', day: 'numeric', year: 'numeric'
+          });
+          const expires = r.expires_at
+            ? new Date(r.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+            : '—';
+          const isExpired = r.expires_at && new Date(r.expires_at) < new Date();
+          const status = isExpired && r.status === 'pending' ? 'expired' : r.status;
+          const url = `${window.location.origin}/book/${r.token}`;
+
+          return `
+            <div class="request-item" id="req-${r.token}">
+              <div class="request-meta">
+                <div class="request-name">${esc(r.client_name)}</div>
+                <div class="request-detail">
+                  ${r.duration_hours} hr${r.duration_hours !== 1 ? 's' : ''}
+                  &middot; Created ${created}
+                  &middot; Expires ${expires}
+                </div>
+                ${r.status !== 'booked' && !isExpired
+                  ? `<a class="request-link" href="${url}" target="_blank">${url}</a>`
+                  : `<span class="request-link" style="color: var(--text-muted);">${url}</span>`
+                }
+              </div>
+              <div class="request-actions">
+                <span class="badge badge-${status}">${status}</span>
+                ${r.status !== 'booked'
+                  ? `<button class="btn btn-danger" style="padding: 6px 10px; font-size: 12px;"
+                       onclick="deleteRequest('${r.token}')">Delete</button>`
+                  : ''
+                }
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        listEl.innerHTML = `<div class="alert alert-error">Failed to load requests: ${err.message}</div>`;
+      }
+    }
+
+    async function deleteRequest(token) {
+      if (!confirm('Delete this booking request? The link will stop working.')) return;
+      try {
+        const res = await fetch(`/api/requests/${token}`, {
+          method: 'DELETE',
+          headers: authHeaders(),
+        });
+        if (res.ok) {
+          document.getElementById(`req-${token}`)?.remove();
+          const list = document.getElementById('requestsList');
+          if (!list.querySelector('.request-item')) {
+            list.innerHTML = '<div class="empty">No booking requests yet. Create one above.</div>';
+          }
+        }
+      } catch (err) {
+        alert('Failed to delete: ' + err.message);
+      }
+    }
+
+    // ── Settings Modal ────────────────────────────────────────────────────────
+
+    function buildHourOptions(selectId, selected) {
+      const el = document.getElementById(selectId);
+      el.innerHTML = '';
+      const labels = ['12am','1am','2am','3am','4am','5am','6am','7am','8am','9am','10am','11am',
+                      '12pm','1pm','2pm','3pm','4pm','5pm','6pm','7pm','8pm','9pm','10pm','11pm'];
+      for (let h = 0; h < 24; h++) {
+        const opt = document.createElement('option');
+        opt.value = h;
+        opt.textContent = labels[h];
+        if (h === selected) opt.selected = true;
+        el.appendChild(opt);
+      }
+    }
+
+    async function openSettings() {
+      // Populate hour dropdowns on first open
+      buildHourOptions('settingsStart', 9);
+      buildHourOptions('settingsEnd', 21);
+
+      try {
+        const res = await fetch('/api/requests/settings', { headers: authHeaders() });
+        if (res.ok) {
+          const s = await res.json();
+          document.getElementById('settingsDisplayName').value = s.display_name || '';
+          document.getElementById('settingsStart').value = s.work_start_hour;
+          document.getElementById('settingsEnd').value   = s.work_end_hour;
+          document.getElementById('settingsBuffer').value = s.buffer_minutes;
+          document.querySelectorAll('#settingsOverlay input[type=checkbox]').forEach(cb => {
+            cb.checked = (s.days_off || []).includes(parseInt(cb.value));
+          });
+        }
+      } catch (err) {
+        console.warn('Could not load settings:', err.message);
+      }
+
+      document.getElementById('settingsOverlay').style.display = 'flex';
+    }
+
+    async function saveSettings() {
+      const btn = document.getElementById('saveSettingsBtn');
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+
+      const daysOff = [...document.querySelectorAll('#settingsOverlay input[type=checkbox]:checked')]
+        .map(cb => parseInt(cb.value));
+
+      try {
+        const res = await fetch('/api/requests/settings', {
+          method: 'POST',
+          headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            display_name:    document.getElementById('settingsDisplayName').value.trim(),
+            work_start_hour: parseInt(document.getElementById('settingsStart').value),
+            work_end_hour:   parseInt(document.getElementById('settingsEnd').value),
+            days_off:        daysOff,
+            buffer_minutes:  parseInt(document.getElementById('settingsBuffer').value),
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          showToast(data.error || 'Failed to save settings.', 'error');
+          return;
+        }
+        showToast('Settings saved.', 'success');
+        closeSettings();
+      } catch (err) {
+        showToast('Network error: ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save';
+      }
+    }
+
+    function closeSettings() {
+      document.getElementById('settingsOverlay').style.display = 'none';
+    }
+
+    // ── Utilities ─────────────────────────────────────────────────────────────
+
+    function copyLink() {
+      const input = document.getElementById('resultUrl');
+      input.select();
+      navigator.clipboard.writeText(input.value).then(() => {
+        const btn = document.getElementById('copyBtn');
+        btn.textContent = 'Copied!';
+        btn.style.color = 'var(--success)';
+        setTimeout(() => {
+          btn.textContent = 'Copy';
+          btn.style.color = '';
+        }, 2000);
+      });
+    }
+
+    function showToast(msg, type = 'success') {
+      const toast = document.getElementById('toast');
+      toast.className = `alert alert-${type}`;
+      toast.textContent = msg;
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 5000);
+    }
+
+    function esc(str) {
+      const d = document.createElement('div');
+      d.textContent = str;
+      return d.innerHTML;
+    }
+
+    init();
+  </script>
+</body>
+</html>

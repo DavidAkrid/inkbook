@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>InkBook — Sign In</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;">
+    <div style="width: 100%; max-width: 380px;">
+
+      <div style="text-align: center; margin-bottom: 40px;">
+        <div class="logo" style="font-size: 28px; margin-bottom: 8px;">Ink<span>Book</span></div>
+        <p style="color: var(--text-muted); font-size: 14px;">Booking links for tattoo artists</p>
+      </div>
+
+      <div class="card" style="text-align: center; padding: 32px 24px;">
+        <h2 style="margin-bottom: 8px;">Welcome back</h2>
+        <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 28px;">
+          Sign in to manage your booking links
+        </p>
+
+        <div id="loginAlert"></div>
+
+        <button id="googleBtn" onclick="signInWithGoogle()" class="btn btn-secondary btn-full"
+          style="gap: 12px; font-size: 15px; padding: 12px 20px; justify-content: center;">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/>
+            <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z" fill="#34A853"/>
+            <path d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.347 6.173 0 7.548 0 9s.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+            <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+          </svg>
+          Sign in with Google
+        </button>
+
+        <p style="margin-top: 20px; font-size: 12px; color: var(--text-muted); line-height: 1.5;">
+          Signing in will also let you connect your Google Calendar to enable booking availability.
+        </p>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script>
+    let supabaseClient;
+
+    async function init() {
+      try {
+        const res = await fetch('/api/config');
+        const { supabaseUrl, supabaseAnonKey } = await res.json();
+        supabaseClient = supabase.createClient(supabaseUrl, supabaseAnonKey, {
+          auth: { flowType: 'implicit' },
+        });
+
+        // If already signed in, go straight to dashboard
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (session) {
+          window.location.href = '/';
+          return;
+        }
+
+        // Handle redirect back from Google (Supabase puts tokens in the URL hash)
+        const { data, error } = await supabaseClient.auth.getSession();
+        if (error) {
+          showError('Sign-in failed: ' + error.message);
+        }
+      } catch (err) {
+        showError('Failed to initialize: ' + err.message);
+      }
+    }
+
+    async function signInWithGoogle() {
+      const btn = document.getElementById('googleBtn');
+      btn.disabled = true;
+      btn.textContent = 'Redirecting…';
+
+      try {
+        const { error } = await supabaseClient.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: window.location.origin + '/',
+          },
+        });
+        if (error) {
+          showError('Sign-in error: ' + error.message);
+          btn.disabled = false;
+          btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 18 18" fill="none">...</svg> Sign in with Google`;
+        }
+      } catch (err) {
+        showError('Unexpected error: ' + err.message);
+        btn.disabled = false;
+      }
+    }
+
+    function showError(msg) {
+      document.getElementById('loginAlert').innerHTML =
+        `<div class="alert alert-error" style="margin-bottom: 16px;">${msg}</div>`;
+    }
+
+    init();
+  </script>
+</body>
+</html>

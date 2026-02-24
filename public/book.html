@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Book Your Appointment</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="container">
+    <div class="logo" style="margin-bottom: 32px;">Ink<span style="color: var(--accent);">Book</span></div>
+
+    <!-- Loading state -->
+    <div id="loadingState" class="loading">
+      <div class="spinner"></div>
+      Loading your appointment details…
+    </div>
+
+    <!-- Error state -->
+    <div id="errorState" style="display:none;">
+      <div class="alert alert-error" id="errorMsg"></div>
+    </div>
+
+    <!-- Main booking UI -->
+    <div id="bookingUI" style="display:none;">
+      <!-- Design summary -->
+      <div class="info-box" id="designSummary">
+        <div class="info-box-label" id="designLabel">Your Design</div>
+        <div id="clientName" style="font-weight: 600; font-size: 17px; margin-bottom: 4px;"></div>
+        <div id="durationNote" style="font-size: 13px; color: var(--text-muted); margin-bottom: 10px;"></div>
+        <div id="designNotes" style="font-size: 14px; white-space: pre-wrap;"></div>
+      </div>
+
+      <!-- Slot selection -->
+      <div class="card">
+        <h2>Pick a Time</h2>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+          These are the open windows where your full appointment fits. All times in Eastern.
+        </p>
+
+        <!-- Week navigation (hidden until slots load) -->
+        <div id="weekNav" class="week-nav" style="display:none;">
+          <button class="btn btn-secondary" id="prevWeekBtn" onclick="prevWeek()"
+            style="padding: 6px 14px; font-size: 13px;">&#8592; Prev</button>
+          <span id="weekLabel" class="week-nav-label"></span>
+          <button class="btn btn-secondary" id="nextWeekBtn" onclick="nextWeek()"
+            style="padding: 6px 14px; font-size: 13px;">Next &#8594;</button>
+        </div>
+
+        <div id="slotsContainer">
+          <div class="loading">
+            <div class="spinner"></div>
+            Checking availability…
+          </div>
+        </div>
+      </div>
+
+      <!-- Confirm panel (shown after slot selection) -->
+      <div class="card" id="confirmCard" style="display:none;">
+        <h2>Confirm Your Appointment</h2>
+
+        <div class="confirm-details" id="confirmDetails"></div>
+
+        <div class="form-group" style="margin-top: 16px;">
+          <label for="clientEmail">Your Email (for confirmation)</label>
+          <input type="email" id="clientEmail" placeholder="optional — we'll send you a calendar invite">
+        </div>
+
+        <div id="confirmAlert"></div>
+
+        <button class="btn btn-primary btn-full" id="confirmBtn" onclick="confirmBooking()">
+          Confirm Appointment
+        </button>
+        <button class="btn btn-secondary btn-full" style="margin-top: 8px;" onclick="clearSelection()">
+          Choose a different time
+        </button>
+      </div>
+    </div>
+
+    <!-- Confirmed state -->
+    <div id="confirmedState" style="display:none;">
+      <div class="card" style="text-align: center;">
+        <div class="confirm-icon">&#10003;</div>
+        <h2 style="margin-bottom: 8px;">You're booked!</h2>
+        <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">
+          Your appointment is confirmed. Check your email for details.
+        </p>
+        <div class="confirm-details" id="confirmedDetails"></div>
+        <p style="margin-top: 20px; font-size: 13px; color: var(--text-muted);">
+          Need to reschedule? Reach out to your artist directly.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const token = window.location.pathname.split('/').pop();
+    let requestData = null;
+    let selectedSlot = null;
+
+    // Week calendar state
+    let slotsByDate = {};       // { 'YYYY-MM-DD': [slot, ...] }
+    let daysOff = [];           // [0-6] day-of-week indices the artist doesn't work
+    let currentWeekStart = null;
+    let firstWeekStart = null;
+    let lastWeekStart = null;
+
+    async function init() {
+      // Fetch booking request details
+      try {
+        const res = await fetch(`/api/book/${token}`);
+        const data = await res.json();
+
+        if (!res.ok) {
+          showError(data.error || 'This booking link is not valid.');
+          return;
+        }
+
+        requestData = data;
+
+        // Populate design summary
+        if (data.artist_name) {
+          document.getElementById('designLabel').textContent = `Your Design — with ${data.artist_name}`;
+        }
+        document.getElementById('clientName').textContent = data.client_name;
+        document.getElementById('durationNote').textContent =
+          `${data.duration_hours} hour${data.duration_hours !== 1 ? 's' : ''} appointment`;
+
+        if (data.notes) {
+          document.getElementById('designNotes').textContent = data.notes;
+        }
+
+        // Handle already booked
+        if (data.status === 'booked') {
+          showError('This appointment has already been booked. No further action needed.');
+          return;
+        }
+
+        document.getElementById('loadingState').style.display = 'none';
+        document.getElementById('bookingUI').style.display = 'block';
+
+        // Now fetch availability
+        loadSlots();
+      } catch (err) {
+        showError('Failed to load booking details: ' + err.message);
+      }
+    }
+
+    async function loadSlots() {
+      const container = document.getElementById('slotsContainer');
+      try {
+        const res = await fetch(`/api/book/${token}/availability?days=30`);
+        const data = await res.json();
+
+        if (!res.ok) {
+          container.innerHTML = `<div class="alert alert-error">${data.error}</div>`;
+          return;
+        }
+
+        if (!data.slots || !data.slots.some(s => s.available)) {
+          container.innerHTML = `
+            <div class="empty">
+              No available slots found in the next 30 days.<br>
+              Contact your artist to discuss timing.
+            </div>`;
+          return;
+        }
+
+        daysOff = data.days_off || [];
+        buildSlotsByDate(data.slots);
+        document.getElementById('weekNav').style.display = 'flex';
+        renderWeek();
+      } catch (err) {
+        container.innerHTML = `<div class="alert alert-error">Failed to load availability: ${err.message}</div>`;
+      }
+    }
+
+    // ── Week calendar helpers ─────────────────────────────────────────────────
+
+    function buildSlotsByDate(slots) {
+      slotsByDate = {};
+      slots.forEach(slot => {
+        const key = new Date(slot.start).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+        if (!slotsByDate[key]) slotsByDate[key] = [];
+        slotsByDate[key].push(slot);
+      });
+
+      // First/last week bounded to days that have at least one available slot,
+      // so we don't navigate into weeks that are entirely greyed out.
+      const availableDates = Object.entries(slotsByDate)
+        .filter(([, daySlots]) => daySlots.some(s => s.available))
+        .map(([key]) => key)
+        .sort();
+      firstWeekStart = getWeekStart(new Date(availableDates[0] + 'T12:00:00'));
+      lastWeekStart  = getWeekStart(new Date(availableDates[availableDates.length - 1] + 'T12:00:00'));
+      currentWeekStart = new Date(firstWeekStart);
+    }
+
+    function getWeekStart(date) {
+      const d = new Date(date);
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - d.getDay()); // back to Sunday
+      return d;
+    }
+
+    function addWeeks(date, n) {
+      const d = new Date(date);
+      d.setDate(d.getDate() + n * 7);
+      return d;
+    }
+
+    function dateKey(date) {
+      return date.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+    }
+
+    function renderWeek() {
+      const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const todayKey = dateKey(new Date());
+
+      // Week label
+      const weekEndDate = new Date(addWeeks(currentWeekStart, 1).getTime() - 1);
+      const fmt = { month: 'short', day: 'numeric' };
+      const startLabel = currentWeekStart.toLocaleDateString('en-US', fmt);
+      const endLabel   = weekEndDate.toLocaleDateString('en-US', fmt);
+      document.getElementById('weekLabel').textContent = `${startLabel} – ${endLabel}`;
+
+      // Prev / next button state
+      document.getElementById('prevWeekBtn').disabled =
+        currentWeekStart.getTime() <= firstWeekStart.getTime();
+      document.getElementById('nextWeekBtn').disabled =
+        currentWeekStart.getTime() >= lastWeekStart.getTime();
+
+      // Build 7 columns
+      let cols = '';
+      for (let i = 0; i < 7; i++) {
+        const day = new Date(currentWeekStart);
+        day.setDate(day.getDate() + i);
+        const key = dateKey(day);
+        const slots = slotsByDate[key] || [];
+        const hasSlots = slots.some(s => s.type === 'available');
+        const isToday = key === todayKey;
+
+        const dayName = DAY_NAMES[day.getDay()];
+        const dayNum  = day.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/New_York' });
+
+        let headerClass = 'week-day-header';
+        if (hasSlots) headerClass += ' has-slots';
+        if (isToday)  headerClass += ' is-today';
+
+          let slotBtns;
+        if (key <= todayKey) {
+          slotBtns = `<div class="day-state-block day-state-past">Past date</div>`;
+        } else if (daysOff.includes(day.getDay())) {
+          slotBtns = `<div class="day-state-block day-state-off">Day off</div>`;
+        } else {
+          slotBtns = renderDaySlots(slots);
+        }
+
+        cols += `
+          <div class="week-col">
+            <div class="${headerClass}">${dayName}<br>${dayNum}</div>
+            ${slotBtns}
+          </div>`;
+      }
+
+      document.getElementById('slotsContainer').innerHTML =
+        `<div class="week-grid-wrapper"><div class="week-grid">${cols}</div></div>`;
+    }
+
+    function prevWeek() {
+      if (currentWeekStart.getTime() <= firstWeekStart.getTime()) return;
+      currentWeekStart = addWeeks(currentWeekStart, -1);
+      clearSelection();
+      renderWeek();
+    }
+
+    function nextWeek() {
+      if (currentWeekStart.getTime() >= lastWeekStart.getTime()) return;
+      currentWeekStart = addWeeks(currentWeekStart, 1);
+      clearSelection();
+      renderWeek();
+    }
+
+    // Must match CSS: .slot-btn { height: 30px } and .week-col { gap: 4px }
+    const SLOT_H   = 30;
+    const SLOT_GAP = 4;
+
+    function renderDaySlots(slots) {
+      if (!slots || slots.length === 0) return `<div class="week-no-slots">—</div>`;
+
+      let html = '';
+      let i = 0;
+
+      while (i < slots.length) {
+        const slot = slots[i];
+
+        if (slot.type === 'busy') {
+          // Merge all consecutive busy slots into one block
+          let j = i + 1;
+          while (j < slots.length && slots[j].type === 'busy') j++;
+          const count  = j - i;
+          const height = count * SLOT_H + (count - 1) * SLOT_GAP;
+          html += `<div class="busy-block" style="height:${height}px;">Booked</div>`;
+          i = j;
+        } else {
+          const timeStr = new Date(slot.start).toLocaleTimeString('en-US', {
+            hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York'
+          });
+          if (slot.type === 'available') {
+            html += `<button class="slot-btn" data-start="${slot.start}"
+              onclick="selectSlot(this, '${slot.start}', '${slot.end}')"
+              onmouseenter="highlightSpan(this)"
+              onmouseleave="clearSpanHighlight(this)">${timeStr}</button>`;
+          } else {
+            // 'overlap' — free window but appointment would run into a booking
+            html += `<button class="slot-btn" data-start="${slot.start}" disabled>${timeStr}</button>`;
+          }
+          i++;
+        }
+      }
+
+      return html;
+    }
+
+    function highlightSpan(btn) {
+      const col = btn.closest('.week-col');
+      const spanMs = requestData.duration_hours * 60 * 60 * 1000;
+      const spanStart = new Date(btn.dataset.start).getTime();
+      const spanEnd = spanStart + spanMs;
+      col.querySelectorAll('.slot-btn').forEach(b => {
+        const t = new Date(b.dataset.start).getTime();
+        if (t >= spanStart && t < spanEnd) b.classList.add('span-highlight');
+      });
+    }
+
+    function clearSpanHighlight(btn) {
+      btn.closest('.week-col')
+        .querySelectorAll('.slot-btn.span-highlight')
+        .forEach(b => b.classList.remove('span-highlight'));
+    }
+
+    function selectSlot(btn, start, end) {
+      // Deselect all, then highlight the full appointment span
+      document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
+      const spanMs   = requestData.duration_hours * 60 * 60 * 1000;
+      const spanStart = new Date(start).getTime();
+      const spanEnd   = spanStart + spanMs;
+      btn.closest('.week-col').querySelectorAll('.slot-btn').forEach(b => {
+        const t = new Date(b.dataset.start).getTime();
+        if (t >= spanStart && t < spanEnd) b.classList.add('selected');
+      });
+      selectedSlot = { start, end };
+
+      // Build confirm details
+      const startDate = new Date(start);
+      const dateStr = startDate.toLocaleDateString('en-US', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+        timeZone: 'America/New_York'
+      });
+      const startStr = startDate.toLocaleTimeString('en-US', {
+        hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York'
+      });
+      const endStr = new Date(end).toLocaleTimeString('en-US', {
+        hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York', timeZoneName: 'short'
+      });
+
+      document.getElementById('confirmDetails').innerHTML = `
+        <div class="confirm-row"><span>Date</span><span>${dateStr}</span></div>
+        <div class="confirm-row"><span>Time</span><span>${startStr} – ${endStr}</span></div>
+        <div class="confirm-row"><span>Duration</span><span>${requestData.duration_hours} hrs</span></div>
+      `;
+
+      document.getElementById('confirmCard').style.display = 'block';
+      document.getElementById('confirmCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function clearSelection() {
+      selectedSlot = null;
+      document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
+      document.getElementById('confirmCard').style.display = 'none';
+    }
+
+    async function confirmBooking() {
+      if (!selectedSlot) return;
+
+      const btn = document.getElementById('confirmBtn');
+      const alertEl = document.getElementById('confirmAlert');
+      const email = document.getElementById('clientEmail').value.trim();
+
+      alertEl.innerHTML = '';
+      btn.disabled = true;
+      btn.textContent = 'Booking…';
+
+      try {
+        const res = await fetch(`/api/book/${token}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ start_time: selectedSlot.start, client_email: email || undefined }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          alertEl.innerHTML = `<div class="alert alert-error">${data.error}</div>`;
+          btn.disabled = false;
+          btn.textContent = 'Confirm Appointment';
+          return;
+        }
+
+        // Show confirmed state
+        const startDate = new Date(data.start_time);
+        const dateStr = startDate.toLocaleDateString('en-US', {
+          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+          timeZone: 'America/New_York'
+        });
+        const startStr = startDate.toLocaleTimeString('en-US', {
+          hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York'
+        });
+        const endStr = new Date(data.end_time).toLocaleTimeString('en-US', {
+          hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York', timeZoneName: 'short'
+        });
+
+        document.getElementById('confirmedDetails').innerHTML = `
+          <div class="confirm-row"><span>Date</span><span>${dateStr}</span></div>
+          <div class="confirm-row"><span>Time</span><span>${startStr} – ${endStr}</span></div>
+          ${email ? `<div class="confirm-row"><span>Confirmation to</span><span>${email}</span></div>` : ''}
+        `;
+
+        document.getElementById('bookingUI').style.display = 'none';
+        document.getElementById('confirmedState').style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch (err) {
+        alertEl.innerHTML = `<div class="alert alert-error">Network error: ${err.message}</div>`;
+        btn.disabled = false;
+        btn.textContent = 'Confirm Appointment';
+      }
+    }
+
+    function showError(msg) {
+      document.getElementById('loadingState').style.display = 'none';
+      document.getElementById('errorMsg').textContent = msg;
+      document.getElementById('errorState').style.display = 'block';
+    }
+
+    init();
+  </script>
+</body>
+</html>
