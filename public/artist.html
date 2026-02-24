@@ -12,14 +12,12 @@
     <!-- Header -->
     <div class="header">
       <div class="logo">Ink<span>Book</span></div>
-      <div style="display: flex; align-items: center; gap: 12px;">
-        <span id="userEmail" style="font-size: 13px; color: var(--text-muted);"></span>
-        <button onclick="openSettings()" class="btn btn-secondary" style="font-size: 13px; padding: 7px 14px;">
-          Settings
-        </button>
-        <button onclick="signOut()" class="btn btn-secondary" style="font-size: 13px; padding: 7px 14px;">
-          Sign out
-        </button>
+      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+        <span id="userEmail" style="font-size: 13px; color: var(--text-muted); word-break: break-all;"></span>
+        <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+          <button onclick="openSettings()" class="btn btn-secondary" title="Settings" style="font-size: 16px; padding: 6px 10px; line-height: 1;">&#9881;</button>
+          <button onclick="signOut()" class="btn btn-danger" style="font-size: 13px; padding: 7px 14px;">Sign out</button>
+        </div>
       </div>
     </div>
 
