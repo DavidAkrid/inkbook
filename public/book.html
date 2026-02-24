@@ -129,9 +129,10 @@
         document.getElementById('durationNote').textContent =
           `${data.duration_hours} hour${data.duration_hours !== 1 ? 's' : ''} appointment`;
 
-        // Handle already booked
+        // Handle already booked — show confirmed state with details
         if (data.status === 'booked') {
-          showError('This appointment has already been booked. No further action needed.');
+          document.getElementById('loadingState').style.display = 'none';
+          showConfirmed(data);
           return;
         }
 
@@ -406,6 +407,17 @@
         }
 
         // Show confirmed state
+        showConfirmed(data);
+        document.getElementById('bookingUI').style.display = 'none';
+      } catch (err) {
+        alertEl.innerHTML = `<div class="alert alert-error">Network error: ${err.message}</div>`;
+        btn.disabled = false;
+        btn.textContent = 'Confirm Appointment';
+      }
+    }
+
+    function showConfirmed(data) {
+      if (data.start_time && data.end_time) {
         const startDate = new Date(data.start_time);
         const dateStr = startDate.toLocaleDateString('en-US', {
           weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
@@ -417,42 +429,36 @@
         const endStr = new Date(data.end_time).toLocaleTimeString('en-US', {
           hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York', timeZoneName: 'short'
         });
-
         document.getElementById('confirmedDetails').innerHTML = `
           <div class="confirm-row"><span>Date</span><span>${dateStr}</span></div>
           <div class="confirm-row"><span>Time</span><span>${startStr} – ${endStr}</span></div>
         `;
+      }
 
-        document.getElementById('bookingUI').style.display = 'none';
-        document.getElementById('confirmedState').style.display = 'block';
+      document.getElementById('confirmedState').style.display = 'block';
 
-        if (data.deposit) {
-          const amount = parseFloat(data.deposit.amount);
-          const formatted = amount % 1 === 0 ? amount.toFixed(0) : amount.toFixed(2);
-          document.getElementById('depositMsg').textContent = `$${formatted}`;
+      if (data.deposit) {
+        const amount = parseFloat(data.deposit.amount);
+        const formatted = amount % 1 === 0 ? amount.toFixed(0) : amount.toFixed(2);
+        document.getElementById('depositMsg').textContent = `$${formatted}`;
 
-          const descEl = document.getElementById('depositDescription');
-          if (data.deposit.description) {
-            descEl.textContent = data.deposit.description;
-            descEl.style.display = 'block';
-          }
-
-          document.getElementById('depositLinks').innerHTML = (data.deposit.links || []).map(l => {
-            const safeUrl = /^https?:\/\//.test(l.url) ? l.url : '#';
-            const div = document.createElement('div');
-            div.textContent = l.label;
-            return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer"
-              class="btn btn-primary" style="font-size: 15px; padding: 10px 24px;">${div.innerHTML}</a>`;
-          }).join('');
-          document.getElementById('depositPrompt').style.display = 'block';
+        const descEl = document.getElementById('depositDescription');
+        if (data.deposit.description) {
+          descEl.textContent = data.deposit.description;
+          descEl.style.display = 'block';
         }
 
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      } catch (err) {
-        alertEl.innerHTML = `<div class="alert alert-error">Network error: ${err.message}</div>`;
-        btn.disabled = false;
-        btn.textContent = 'Confirm Appointment';
+        document.getElementById('depositLinks').innerHTML = (data.deposit.links || []).map(l => {
+          const safeUrl = /^https?:\/\//.test(l.url) ? l.url : '#';
+          const div = document.createElement('div');
+          div.textContent = l.label;
+          return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer"
+            class="btn btn-primary" style="font-size: 15px; padding: 10px 24px;">${div.innerHTML}</a>`;
+        }).join('');
+        document.getElementById('depositPrompt').style.display = 'block';
       }
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     function showError(msg) {

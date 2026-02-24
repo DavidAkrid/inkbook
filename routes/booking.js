@@ -10,16 +10,50 @@ router.get('/:token', async (req, res) => {
 
   const { data: request, error } = await supabase
     .from('booking_requests')
-    .select('client_name, duration_hours, notes, status, expires_at, artists(name, display_name)')
+    .select('id, client_name, duration_hours, notes, status, expires_at, artists(name, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description)')
     .eq('token', token)
     .single();
 
   if (error || !request) return res.status(404).json({ error: 'This booking link is not valid.' });
-  if (request.expires_at && new Date(request.expires_at) < new Date()) {
+
+  const now = new Date();
+  const artist = request.artists;
+
+  // If already booked, include appointment time and deposit info for revisit
+  if (request.status === 'booked') {
+    const { data: booking } = await supabase
+      .from('bookings')
+      .select('start_time, end_time')
+      .eq('request_id', request.id)
+      .single();
+
+    // Expire 1 week after the appointment ends
+    if (booking && new Date(booking.end_time).getTime() + 7 * 24 * 60 * 60 * 1000 < now.getTime()) {
+      return res.status(410).json({ error: 'This booking link has expired.' });
+    }
+
+    const deposit = artist?.deposit_enabled ? {
+      amount:      artist.deposit_amount,
+      links:       artist.deposit_links       || [],
+      description: artist.deposit_description || null,
+    } : null;
+
+    return res.json({
+      client_name:    request.client_name,
+      duration_hours: request.duration_hours,
+      status:         request.status,
+      artist_name:    artist?.display_name || artist?.name || null,
+      start_time:     booking?.start_time,
+      end_time:       booking?.end_time,
+      deposit,
+    });
+  }
+
+  // Pending link — use the original expiry
+  if (request.expires_at && new Date(request.expires_at) < now) {
     return res.status(410).json({ error: 'This booking link has expired.' });
   }
 
-  const artist = request.artists;
   res.json({
     client_name:    request.client_name,
     duration_hours: request.duration_hours,
