@@ -533,12 +533,6 @@
           btn.disabled = false; btn.textContent = 'Save';
           return;
         }
-        if (getDepositLinks().length === 0) {
-          settingsAlert.textContent = 'Please add at least one payment link.';
-          settingsAlert.style.display = 'block';
-          btn.disabled = false; btn.textContent = 'Save';
-          return;
-        }
       }
 
       try {
