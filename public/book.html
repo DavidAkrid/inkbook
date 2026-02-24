@@ -27,8 +27,7 @@
       <div class="info-box" id="designSummary">
         <div class="info-box-label" id="designLabel">Your Design</div>
         <div id="clientName" style="font-weight: 600; font-size: 17px; margin-bottom: 4px;"></div>
-        <div id="durationNote" style="font-size: 13px; color: var(--text-muted); margin-bottom: 10px;"></div>
-        <div id="designNotes" style="font-size: 14px; white-space: pre-wrap;"></div>
+        <div id="durationNote" style="font-size: 13px; color: var(--text-muted);"></div>
       </div>
 
       <!-- Slot selection -->
@@ -60,11 +59,6 @@
         <h2>Confirm Your Appointment</h2>
 
         <div class="confirm-details" id="confirmDetails"></div>
-
-        <div class="form-group" style="margin-top: 16px;">
-          <label for="clientEmail">Your Email (for confirmation)</label>
-          <input type="email" id="clientEmail" placeholder="optional — we'll send you a calendar invite">
-        </div>
 
         <div id="confirmAlert"></div>
 
@@ -125,10 +119,6 @@
         document.getElementById('clientName').textContent = data.client_name;
         document.getElementById('durationNote').textContent =
           `${data.duration_hours} hour${data.duration_hours !== 1 ? 's' : ''} appointment`;
-
-        if (data.notes) {
-          document.getElementById('designNotes').textContent = data.notes;
-        }
 
         // Handle already booked
         if (data.status === 'booked') {
@@ -385,7 +375,6 @@
 
       const btn = document.getElementById('confirmBtn');
       const alertEl = document.getElementById('confirmAlert');
-      const email = document.getElementById('clientEmail').value.trim();
 
       alertEl.innerHTML = '';
       btn.disabled = true;
@@ -395,7 +384,7 @@
         const res = await fetch(`/api/book/${token}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ start_time: selectedSlot.start, client_email: email || undefined }),
+          body: JSON.stringify({ start_time: selectedSlot.start }),
         });
 
         const data = await res.json();
@@ -423,7 +412,6 @@
         document.getElementById('confirmedDetails').innerHTML = `
           <div class="confirm-row"><span>Date</span><span>${dateStr}</span></div>
           <div class="confirm-row"><span>Time</span><span>${startStr} – ${endStr}</span></div>
-          ${email ? `<div class="confirm-row"><span>Confirmation to</span><span>${email}</span></div>` : ''}
         `;
 
         document.getElementById('bookingUI').style.display = 'none';
