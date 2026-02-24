@@ -166,9 +166,43 @@ async function createCalendarEvent({ clientName, clientEmail, artistEmail, start
   return res.data;
 }
 
+/**
+ * Fetch calendar events with their titles (for artist reference view).
+ * Uses events.list instead of freebusy so we get summaries.
+ */
+async function getCalendarEventTitles(daysAhead, artistTokens, startFromToday = false) {
+  const auth = buildOAuthClient(artistTokens.refreshToken);
+  const calendar = google.calendar({ version: 'v3', auth });
+
+  const now = new Date();
+  const timeMin = new Date(now);
+  if (!startFromToday) timeMin.setDate(timeMin.getDate() + 1);
+  timeMin.setHours(0, 0, 0, 0);
+
+  const timeMax = new Date(now);
+  timeMax.setDate(timeMax.getDate() + daysAhead);
+  timeMax.setHours(23, 59, 59, 999);
+
+  const res = await calendar.events.list({
+    calendarId: artistTokens.calendarId,
+    timeMin: timeMin.toISOString(),
+    timeMax: timeMax.toISOString(),
+    singleEvents: true,
+    orderBy: 'startTime',
+  });
+
+  return (res.data.items || []).map(e => ({
+    title: e.summary || 'Event',
+    // All-day events have .date instead of .dateTime — expand to full day
+    start: e.start.dateTime || (e.start.date + 'T00:00:00'),
+    end:   e.end.dateTime   || (e.end.date   + 'T23:59:59'),
+  }));
+}
+
 module.exports = {
   getCalendarAuthUrl,
   exchangeCodeForTokens,
   getAvailableSlots,
+  getCalendarEventTitles,
   createCalendarEvent,
 };

@@ -129,19 +129,8 @@
           style="padding: 6px 14px; font-size: 13px;">Next &#8594;</button>
       </div>
 
-      <div class="week-grid-wrapper">
-        <div class="week-grid" id="calGrid">
-          <div class="loading"><div class="spinner"></div></div>
-        </div>
-      </div>
-
-      <div style="display: flex; gap: 16px; margin-top: 12px; font-size: 12px; color: var(--text-muted); align-items: center;">
-        <span style="display:flex; align-items:center; gap:5px;">
-          <span style="display:inline-block; width:10px; height:10px; background:rgba(82,168,82,0.15); border:1px solid rgba(82,168,82,0.3); border-radius:2px;"></span>Available
-        </span>
-        <span style="display:flex; align-items:center; gap:5px;">
-          <span style="display:inline-block; width:10px; height:10px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:2px;"></span>Busy
-        </span>
+      <div id="calSlotsContainer">
+        <div class="loading"><div class="spinner"></div></div>
       </div>
     </div>
 
@@ -537,13 +526,19 @@
 
     // ── My Calendar ───────────────────────────────────────────────────────────
 
-    let calSlots = [];
-    let calWeekOffset = 0;
-    const CAL_WEEKS = 2;
+    let calSlotsByDate = {};
+    let calDaysOff = [];
+    let calEvents = [];
+    let calCurrentWeekStart = null;
+    let calFirstWeekStart = null;
+    let calLastWeekStart = null;
+    const CAL_SLOT_H   = 30;
+    const CAL_SLOT_GAP = 4;
 
     async function loadCalendar() {
       document.getElementById('calendarSection').style.display = 'block';
-      document.getElementById('calGrid').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+      document.getElementById('calSlotsContainer').innerHTML =
+        '<div class="loading"><div class="spinner"></div></div>';
       try {
         const res = await fetch('/api/requests/availability', { headers: authHeaders() });
         if (!res.ok) {
@@ -551,81 +546,141 @@
           return;
         }
         const data = await res.json();
-        calSlots = data.slots || [];
-        calWeekOffset = 0;
-        renderCalendar();
+        calDaysOff = data.days_off || [];
+        calEvents  = data.events  || [];
+        calBuildSlotsByDate(data.slots || []);
+        renderCalWeek();
       } catch (err) {
         console.warn('Calendar load failed:', err.message);
         document.getElementById('calendarSection').style.display = 'none';
       }
     }
 
-    function renderCalendar() {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      const startDay = new Date(today);
-      startDay.setDate(startDay.getDate() + calWeekOffset * 7);
-      const endDay = new Date(startDay);
-      endDay.setDate(endDay.getDate() + 6);
-
-      const fmt = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      document.getElementById('calWeekLabel').textContent = `${fmt(startDay)} – ${fmt(endDay)}`;
-      document.getElementById('calPrevBtn').disabled = calWeekOffset === 0;
-      document.getElementById('calNextBtn').disabled = calWeekOffset >= CAL_WEEKS - 1;
-
-      // Group slots by local date string YYYY-MM-DD
-      const slotsByDate = {};
-      calSlots.forEach(slot => {
-        const d = new Date(slot.start);
-        const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-        if (!slotsByDate[key]) slotsByDate[key] = [];
-        slotsByDate[key].push(slot);
+    function calBuildSlotsByDate(slots) {
+      calSlotsByDate = {};
+      slots.forEach(slot => {
+        const key = new Date(slot.start).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+        if (!calSlotsByDate[key]) calSlotsByDate[key] = [];
+        calSlotsByDate[key].push(slot);
       });
+      const allDates = Object.keys(calSlotsByDate).sort();
+      if (!allDates.length) return;
+      calFirstWeekStart  = calGetWeekStart(new Date(allDates[0] + 'T12:00:00'));
+      calLastWeekStart   = calGetWeekStart(new Date(allDates[allDates.length - 1] + 'T12:00:00'));
+      calCurrentWeekStart = calGetWeekStart(new Date());
+    }
 
-      const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-      const now = new Date();
+    function calGetWeekStart(date) {
+      const d = new Date(date);
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - d.getDay()); // back to Sunday
+      return d;
+    }
 
-      const cols = [];
+    function calAddWeeks(date, n) {
+      const d = new Date(date);
+      d.setDate(d.getDate() + n * 7);
+      return d;
+    }
+
+    function calDateKey(date) {
+      return date.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+    }
+
+    function renderCalWeek() {
+      const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const todayKey  = calDateKey(new Date());
+
+      const weekEnd = new Date(calAddWeeks(calCurrentWeekStart, 1).getTime() - 1);
+      const fmt = { month: 'short', day: 'numeric' };
+      document.getElementById('calWeekLabel').textContent =
+        `${calCurrentWeekStart.toLocaleDateString('en-US', fmt)} – ${weekEnd.toLocaleDateString('en-US', fmt)}`;
+
+      document.getElementById('calPrevBtn').disabled =
+        calCurrentWeekStart.getTime() <= calFirstWeekStart.getTime();
+      document.getElementById('calNextBtn').disabled =
+        calCurrentWeekStart.getTime() >= calLastWeekStart.getTime();
+
+      let cols = '';
       for (let i = 0; i < 7; i++) {
-        const day = new Date(startDay);
+        const day = new Date(calCurrentWeekStart);
         day.setDate(day.getDate() + i);
-        const isPast = day < today;
-        const isToday = day.getTime() === today.getTime();
-        const key = `${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`;
-        const daySlots = slotsByDate[key] || [];
-        const headerClass = `week-day-header${isToday ? ' is-today' : daySlots.length ? ' has-slots' : ''}`;
+        const key     = calDateKey(day);
+        const slots   = calSlotsByDate[key] || [];
+        const hasSlots = slots.some(s => s.type === 'available');
+        const isToday  = key === todayKey;
+
+        const dayName = DAY_NAMES[day.getDay()];
+        const dayNum  = day.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/New_York' });
+
+        let headerClass = 'week-day-header';
+        if (hasSlots) headerClass += ' has-slots';
+        if (isToday)  headerClass += ' is-today';
 
         let body;
-        if (isPast) {
-          body = `<div class="day-state-block day-state-past">Past</div>`;
-        } else if (!daySlots.length) {
-          body = `<div class="day-state-block day-state-off">Day<br>Off</div>`;
+        if (key <= todayKey) {
+          body = `<div class="day-state-block day-state-past">Past date</div>`;
+        } else if (calDaysOff.includes(day.getDay())) {
+          body = `<div class="day-state-block day-state-off">Day off</div>`;
         } else {
-          body = daySlots.map(slot => {
-            const t = new Date(slot.start);
-            const h = t.getHours();
-            const m = t.getMinutes();
-            const isPastSlot = t < now;
-            const label = `${h % 12 || 12}${m ? ':' + String(m).padStart(2,'0') : ''}${h < 12 ? 'a' : 'p'}`;
-            const cls = slot.available ? 'ref-slot ref-slot-available' : 'ref-slot ref-slot-busy';
-            const dimStyle = isPastSlot ? ' style="opacity:0.3;"' : '';
-            return `<div class="${cls}"${dimStyle}>${label}</div>`;
-          }).join('');
+          body = calRenderDaySlots(slots);
         }
 
-        cols.push(`<div class="week-col"><div class="${headerClass}">${dayNames[day.getDay()]}<br>${day.getDate()}</div>${body}</div>`);
+        cols += `<div class="week-col"><div class="${headerClass}">${dayName}<br>${dayNum}</div>${body}</div>`;
       }
 
-      document.getElementById('calGrid').innerHTML = cols.join('');
+      document.getElementById('calSlotsContainer').innerHTML =
+        `<div class="week-grid-wrapper"><div class="week-grid">${cols}</div></div>`;
+    }
+
+    function calRenderDaySlots(slots) {
+      if (!slots || slots.length === 0) return `<div class="week-no-slots">—</div>`;
+
+      let html = '';
+      let i = 0;
+      while (i < slots.length) {
+        const slot = slots[i];
+        if (slot.type === 'busy') {
+          let j = i + 1;
+          while (j < slots.length && slots[j].type === 'busy') j++;
+          const count     = j - i;
+          const height    = count * CAL_SLOT_H + (count - 1) * CAL_SLOT_GAP;
+          const blockStart = new Date(slots[i].start).getTime();
+          const blockEnd   = new Date(slots[j - 1].end).getTime();
+          // Find events overlapping this busy block
+          const overlapping = calEvents.filter(e =>
+            new Date(e.start).getTime() < blockEnd &&
+            new Date(e.end).getTime()   > blockStart
+          );
+          const label = overlapping.length
+            ? overlapping.map(e => esc(e.title)).join('<br>')
+            : 'Booked';
+          html += `<div class="busy-block" style="height:${height}px; text-transform:none; letter-spacing:normal; align-items:flex-start; padding:4px 6px; font-size:10px; overflow:hidden;">${label}</div>`;
+          i = j;
+        } else {
+          const timeStr = new Date(slot.start).toLocaleTimeString('en-US', {
+            hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York'
+          });
+          // Read-only: same visual as client page but no interaction
+          html += `<button class="slot-btn" style="cursor:default;" tabindex="-1"
+            onclick="return false;" onmouseenter="" onmouseleave=""
+            ${slot.type !== 'available' ? 'disabled' : ''}>${timeStr}</button>`;
+          i++;
+        }
+      }
+      return html;
     }
 
     function prevCalWeek() {
-      if (calWeekOffset > 0) { calWeekOffset--; renderCalendar(); }
+      if (calCurrentWeekStart.getTime() <= calFirstWeekStart.getTime()) return;
+      calCurrentWeekStart = calAddWeeks(calCurrentWeekStart, -1);
+      renderCalWeek();
     }
 
     function nextCalWeek() {
-      if (calWeekOffset < CAL_WEEKS - 1) { calWeekOffset++; renderCalendar(); }
+      if (calCurrentWeekStart.getTime() >= calLastWeekStart.getTime()) return;
+      calCurrentWeekStart = calAddWeeks(calCurrentWeekStart, 1);
+      renderCalWeek();
     }
 
     init();
