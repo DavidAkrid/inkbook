@@ -111,6 +111,40 @@
       </div>
     </div>
 
+    <!-- My Calendar (only shown when calendar is connected) -->
+    <div class="card" id="calendarSection" style="display:none; margin-top: 32px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+        <h2 style="margin-bottom: 0;">My Calendar</h2>
+        <button onclick="loadCalendar()" class="btn btn-secondary" style="font-size: 12px; padding: 5px 12px;">Refresh</button>
+      </div>
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+        Your availability as clients see it. All times Eastern.
+      </p>
+
+      <div class="week-nav">
+        <button class="btn btn-secondary" id="calPrevBtn" onclick="prevCalWeek()"
+          style="padding: 6px 14px; font-size: 13px;">&#8592; Prev</button>
+        <span id="calWeekLabel" class="week-nav-label"></span>
+        <button class="btn btn-secondary" id="calNextBtn" onclick="nextCalWeek()"
+          style="padding: 6px 14px; font-size: 13px;">Next &#8594;</button>
+      </div>
+
+      <div class="week-grid-wrapper">
+        <div class="week-grid" id="calGrid">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 16px; margin-top: 12px; font-size: 12px; color: var(--text-muted); align-items: center;">
+        <span style="display:flex; align-items:center; gap:5px;">
+          <span style="display:inline-block; width:10px; height:10px; background:rgba(82,168,82,0.15); border:1px solid rgba(82,168,82,0.3); border-radius:2px;"></span>Available
+        </span>
+        <span style="display:flex; align-items:center; gap:5px;">
+          <span style="display:inline-block; width:10px; height:10px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:2px;"></span>Busy
+        </span>
+      </div>
+    </div>
+
   </div>
 
   <!-- Settings Modal -->
@@ -236,6 +270,7 @@
           banner.style.display = 'block';
         } else {
           banner.style.display = 'none';
+          loadCalendar();
         }
       } catch (err) {
         console.warn('Profile load failed:', err.message);
@@ -498,6 +533,99 @@
       const d = document.createElement('div');
       d.textContent = str;
       return d.innerHTML;
+    }
+
+    // ── My Calendar ───────────────────────────────────────────────────────────
+
+    let calSlots = [];
+    let calWeekOffset = 0;
+    const CAL_WEEKS = 2;
+
+    async function loadCalendar() {
+      document.getElementById('calendarSection').style.display = 'block';
+      document.getElementById('calGrid').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+      try {
+        const res = await fetch('/api/requests/availability', { headers: authHeaders() });
+        if (!res.ok) {
+          document.getElementById('calendarSection').style.display = 'none';
+          return;
+        }
+        const data = await res.json();
+        calSlots = data.slots || [];
+        calWeekOffset = 0;
+        renderCalendar();
+      } catch (err) {
+        console.warn('Calendar load failed:', err.message);
+        document.getElementById('calendarSection').style.display = 'none';
+      }
+    }
+
+    function renderCalendar() {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const startDay = new Date(today);
+      startDay.setDate(startDay.getDate() + calWeekOffset * 7);
+      const endDay = new Date(startDay);
+      endDay.setDate(endDay.getDate() + 6);
+
+      const fmt = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      document.getElementById('calWeekLabel').textContent = `${fmt(startDay)} – ${fmt(endDay)}`;
+      document.getElementById('calPrevBtn').disabled = calWeekOffset === 0;
+      document.getElementById('calNextBtn').disabled = calWeekOffset >= CAL_WEEKS - 1;
+
+      // Group slots by local date string YYYY-MM-DD
+      const slotsByDate = {};
+      calSlots.forEach(slot => {
+        const d = new Date(slot.start);
+        const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        if (!slotsByDate[key]) slotsByDate[key] = [];
+        slotsByDate[key].push(slot);
+      });
+
+      const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      const now = new Date();
+
+      const cols = [];
+      for (let i = 0; i < 7; i++) {
+        const day = new Date(startDay);
+        day.setDate(day.getDate() + i);
+        const isPast = day < today;
+        const isToday = day.getTime() === today.getTime();
+        const key = `${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`;
+        const daySlots = slotsByDate[key] || [];
+        const headerClass = `week-day-header${isToday ? ' is-today' : daySlots.length ? ' has-slots' : ''}`;
+
+        let body;
+        if (isPast) {
+          body = `<div class="day-state-block day-state-past">Past</div>`;
+        } else if (!daySlots.length) {
+          body = `<div class="day-state-block day-state-off">Day<br>Off</div>`;
+        } else {
+          body = daySlots.map(slot => {
+            const t = new Date(slot.start);
+            const h = t.getHours();
+            const m = t.getMinutes();
+            const isPastSlot = t < now;
+            const label = `${h % 12 || 12}${m ? ':' + String(m).padStart(2,'0') : ''}${h < 12 ? 'a' : 'p'}`;
+            const cls = slot.available ? 'ref-slot ref-slot-available' : 'ref-slot ref-slot-busy';
+            const dimStyle = isPastSlot ? ' style="opacity:0.3;"' : '';
+            return `<div class="${cls}"${dimStyle}>${label}</div>`;
+          }).join('');
+        }
+
+        cols.push(`<div class="week-col"><div class="${headerClass}">${dayNames[day.getDay()]}<br>${day.getDate()}</div>${body}</div>`);
+      }
+
+      document.getElementById('calGrid').innerHTML = cols.join('');
+    }
+
+    function prevCalWeek() {
+      if (calWeekOffset > 0) { calWeekOffset--; renderCalendar(); }
+    }
+
+    function nextCalWeek() {
+      if (calWeekOffset < CAL_WEEKS - 1) { calWeekOffset++; renderCalendar(); }
     }
 
     init();

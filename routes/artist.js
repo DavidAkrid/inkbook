@@ -3,6 +3,7 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const supabase = require('../services/supabase');
 const authMiddleware = require('../middleware/auth');
+const { getAvailableSlots } = require('../services/google-calendar');
 
 // All artist routes require authentication
 router.use(authMiddleware);
@@ -153,6 +154,38 @@ router.post('/settings', async (req, res) => {
 
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
+});
+
+// GET /api/requests/availability — artist's own calendar view (reference only)
+// Must be before /:token to avoid being captured by the wildcard
+router.get('/availability', async (req, res) => {
+  const { data: artist, error } = await supabase
+    .from('artists')
+    .select('google_refresh_token, google_calendar_id, work_start_hour, work_end_hour, days_off, buffer_minutes')
+    .eq('id', req.user.id)
+    .single();
+
+  if (error || !artist) return res.status(404).json({ error: 'Artist profile not found.' });
+  if (!artist.google_refresh_token) return res.status(503).json({ error: 'Calendar not connected.' });
+
+  try {
+    const slots = await getAvailableSlots(
+      0.5,  // 30-min granularity
+      14,   // 2 weeks ahead
+      { refreshToken: artist.google_refresh_token, calendarId: artist.google_calendar_id },
+      {
+        work_start_hour: artist.work_start_hour ?? 9,
+        work_end_hour:   artist.work_end_hour   ?? 21,
+        days_off:        artist.days_off        ?? [],
+        buffer_minutes:  artist.buffer_minutes  ?? 0,
+      },
+      true  // startFromToday
+    );
+    res.json({ slots, days_off: artist.days_off ?? [] });
+  } catch (err) {
+    console.error('Artist availability error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch calendar availability.' });
+  }
 });
 
 // GET /api/requests/:token — get a single booking request (used by client page too)

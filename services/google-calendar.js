@@ -37,7 +37,7 @@ async function exchangeCodeForTokens(code) {
  * @param {{ refreshToken: string, calendarId: string }} artistTokens
  * @param {{ work_start_hour?: number, work_end_hour?: number, days_off?: number[], buffer_minutes?: number }} settings
  */
-async function getAvailableSlots(durationHours, daysAhead = 30, artistTokens, settings = {}) {
+async function getAvailableSlots(durationHours, daysAhead = 30, artistTokens, settings = {}, startFromToday = false) {
   const auth = buildOAuthClient(artistTokens.refreshToken);
   const calendar = google.calendar({ version: 'v3', auth });
   const calendarId = artistTokens.calendarId;
@@ -49,7 +49,7 @@ async function getAvailableSlots(durationHours, daysAhead = 30, artistTokens, se
 
   const now = new Date();
   const timeMin = new Date(now);
-  timeMin.setDate(timeMin.getDate() + 1);
+  if (!startFromToday) timeMin.setDate(timeMin.getDate() + 1);
   timeMin.setHours(workStart, 0, 0, 0);
 
   const timeMax = new Date(now);
