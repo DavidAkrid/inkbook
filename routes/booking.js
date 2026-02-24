@@ -82,7 +82,7 @@ router.post('/:token', async (req, res) => {
 
   const { data: request, error } = await supabase
     .from('booking_requests')
-    .select('*, artists(google_refresh_token, google_calendar_id, email)')
+    .select('*, artists(google_refresh_token, google_calendar_id, email, deposit_enabled, deposit_amount, deposit_links, deposit_description)')
     .eq('token', token)
     .single();
 
@@ -145,12 +145,19 @@ router.post('/:token', async (req, res) => {
     .update({ status: 'booked' })
     .eq('id', request.id);
 
+  const deposit = artist.deposit_enabled ? {
+    amount:      artist.deposit_amount,
+    links:       artist.deposit_links       || [],
+    description: artist.deposit_description || null,
+  } : null;
+
   res.status(201).json({
     success: true,
     booking_id: booking.id,
     start_time: startTime.toISOString(),
     end_time: endTime.toISOString(),
     client_name: request.client_name,
+    deposit,
   });
 });
 

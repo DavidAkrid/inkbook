@@ -61,6 +61,10 @@ ALTER TABLE artists ADD COLUMN IF NOT EXISTS work_end_hour   SMALLINT NOT NULL D
 ALTER TABLE artists ADD COLUMN IF NOT EXISTS days_off        INTEGER[] NOT NULL DEFAULT '{}';
 ALTER TABLE artists ADD COLUMN IF NOT EXISTS buffer_minutes  SMALLINT NOT NULL DEFAULT 0;
 ALTER TABLE artists ADD COLUMN IF NOT EXISTS display_name    TEXT;
+ALTER TABLE artists ADD COLUMN IF NOT EXISTS deposit_enabled     BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE artists ADD COLUMN IF NOT EXISTS deposit_amount      NUMERIC;
+ALTER TABLE artists ADD COLUMN IF NOT EXISTS deposit_links       JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE artists ADD COLUMN IF NOT EXISTS deposit_description TEXT;
 
 -- ============================================================
 -- Indexes

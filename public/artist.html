@@ -160,7 +160,7 @@
           </div>
         </div>
 
-        <div class="form-group" style="margin-bottom: 0;">
+        <div class="form-group">
           <label>Buffer Between Appointments</label>
           <select id="settingsBuffer">
             <option value="0">No buffer</option>
@@ -170,7 +170,42 @@
             <option value="60">60 minutes</option>
           </select>
         </div>
+
+        <div style="border-top: 1px solid var(--border); margin: 4px 0 20px;"></div>
+
+        <div class="form-group">
+          <label class="toggle-row" for="settingsDepositEnabled">
+            <span>Require Deposit</span>
+            <div class="toggle-switch">
+              <input type="checkbox" id="settingsDepositEnabled" onchange="toggleDepositSettings()">
+              <span class="toggle-slider"></span>
+            </div>
+          </label>
+        </div>
+
+        <div id="depositSettings" style="transition: opacity 0.15s;">
+          <div class="form-group">
+            <label>Deposit Amount</label>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="color: var(--text-muted); font-size: 18px; font-weight: 300;">$</span>
+              <input type="number" id="settingsDepositAmount" min="0" step="0.01" placeholder="e.g. 50" style="flex: 1;">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Message to Client <span style="font-weight:400; text-transform:none; letter-spacing:0; color:var(--text-muted); font-size:11px;">(optional)</span></label>
+            <textarea id="settingsDepositDescription" rows="2" placeholder="e.g. Please send your deposit within 24 hours to secure your spot."></textarea>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0;">
+            <label>Payment Links</label>
+            <div id="depositLinksList" style="display: flex; flex-direction: column; gap: 8px;"></div>
+            <button type="button" onclick="addDepositLink()" class="btn btn-secondary"
+              style="margin-top: 10px; font-size: 13px; padding: 6px 14px;">+ Add Link</button>
+          </div>
+        </div>
       </div>
+      <div id="settingsAlert" style="display:none; margin: 0 24px 12px; font-size: 13px; padding: 10px 14px; border-radius: 6px; background: rgba(224,82,82,0.1); border: 1px solid rgba(224,82,82,0.3); color: #ff9999;"></div>
       <div class="modal-footer">
         <button onclick="closeSettings()" class="btn btn-secondary">Cancel</button>
         <button onclick="saveSettings()" class="btn btn-primary" id="saveSettingsBtn">Save</button>
@@ -420,7 +455,6 @@
     }
 
     async function openSettings() {
-      // Populate hour dropdowns on first open
       buildHourOptions('settingsStart', 9);
       buildHourOptions('settingsEnd', 21);
 
@@ -429,12 +463,19 @@
         if (res.ok) {
           const s = await res.json();
           document.getElementById('settingsDisplayName').value = s.display_name || '';
-          document.getElementById('settingsStart').value = s.work_start_hour;
-          document.getElementById('settingsEnd').value   = s.work_end_hour;
+          document.getElementById('settingsStart').value  = s.work_start_hour;
+          document.getElementById('settingsEnd').value    = s.work_end_hour;
           document.getElementById('settingsBuffer').value = s.buffer_minutes;
-          document.querySelectorAll('#settingsOverlay input[type=checkbox]').forEach(cb => {
+          document.querySelectorAll('#settingsOverlay input[type=checkbox][value]').forEach(cb => {
             cb.checked = (s.days_off || []).includes(parseInt(cb.value));
           });
+          // Deposit
+          document.getElementById('settingsDepositEnabled').checked = !!s.deposit_enabled;
+          document.getElementById('settingsDepositAmount').value = s.deposit_amount ?? '';
+          document.getElementById('settingsDepositDescription').value = s.deposit_description ?? '';
+          document.getElementById('depositLinksList').innerHTML = '';
+          (s.deposit_links || []).forEach(l => addDepositLink(l.label, l.url));
+          toggleDepositSettings();
         }
       } catch (err) {
         console.warn('Could not load settings:', err.message);
@@ -443,13 +484,62 @@
       document.getElementById('settingsOverlay').style.display = 'flex';
     }
 
+    function toggleDepositSettings() {
+      const enabled = document.getElementById('settingsDepositEnabled').checked;
+      const el = document.getElementById('depositSettings');
+      el.style.opacity = enabled ? '1' : '0.4';
+      el.style.pointerEvents = enabled ? 'auto' : 'none';
+    }
+
+    function addDepositLink(label = '', url = '') {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex; gap:8px; align-items:center;';
+      row.innerHTML = `
+        <input type="text" placeholder="Label (e.g. Venmo)" value="${esc(label)}"
+          style="flex:1; min-width:0;" class="deposit-link-label">
+        <input type="text" placeholder="https://…" value="${esc(url)}"
+          style="flex:2; min-width:0;" class="deposit-link-url">
+        <button type="button" onclick="this.parentElement.remove()"
+          class="btn btn-danger" style="padding:6px 10px; font-size:13px; flex-shrink:0;">✕</button>
+      `;
+      document.getElementById('depositLinksList').appendChild(row);
+    }
+
+    function getDepositLinks() {
+      return [...document.querySelectorAll('#depositLinksList > div')].map(row => ({
+        label: row.querySelector('.deposit-link-label').value.trim(),
+        url:   row.querySelector('.deposit-link-url').value.trim(),
+      })).filter(l => l.label && l.url);
+    }
+
     async function saveSettings() {
       const btn = document.getElementById('saveSettingsBtn');
       btn.disabled = true;
       btn.textContent = 'Saving…';
 
-      const daysOff = [...document.querySelectorAll('#settingsOverlay input[type=checkbox]:checked')]
+      const daysOff = [...document.querySelectorAll('#settingsOverlay input[type=checkbox][value]:checked')]
         .map(cb => parseInt(cb.value));
+
+      const depositEnabled = document.getElementById('settingsDepositEnabled').checked;
+      const depositAmount  = parseFloat(document.getElementById('settingsDepositAmount').value) || null;
+
+      const settingsAlert = document.getElementById('settingsAlert');
+      settingsAlert.style.display = 'none';
+
+      if (depositEnabled) {
+        if (!depositAmount || depositAmount <= 0) {
+          settingsAlert.textContent = 'Please enter a deposit amount.';
+          settingsAlert.style.display = 'block';
+          btn.disabled = false; btn.textContent = 'Save';
+          return;
+        }
+        if (getDepositLinks().length === 0) {
+          settingsAlert.textContent = 'Please add at least one payment link.';
+          settingsAlert.style.display = 'block';
+          btn.disabled = false; btn.textContent = 'Save';
+          return;
+        }
+      }
 
       try {
         const res = await fetch('/api/requests/settings', {
@@ -461,6 +551,10 @@
             work_end_hour:   parseInt(document.getElementById('settingsEnd').value),
             days_off:        daysOff,
             buffer_minutes:  parseInt(document.getElementById('settingsBuffer').value),
+            deposit_enabled:     depositEnabled,
+            deposit_amount:      depositAmount,
+            deposit_links:       getDepositLinks(),
+            deposit_description: document.getElementById('settingsDepositDescription').value.trim(),
           }),
         });
         const data = await res.json();
@@ -480,6 +574,7 @@
 
     function closeSettings() {
       document.getElementById('settingsOverlay').style.display = 'none';
+      document.getElementById('settingsAlert').style.display = 'none';
     }
 
     // ── Utilities ─────────────────────────────────────────────────────────────

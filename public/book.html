@@ -77,12 +77,21 @@
         <div class="confirm-icon">&#10003;</div>
         <h2 style="margin-bottom: 8px;">You're booked!</h2>
         <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">
-          Your appointment is confirmed. Check your email for details.
+          Your appointment is confirmed.
         </p>
         <div class="confirm-details" id="confirmedDetails"></div>
         <p style="margin-top: 20px; font-size: 13px; color: var(--text-muted);">
           Need to reschedule? Reach out to your artist directly.
         </p>
+      </div>
+
+      <div id="depositPrompt" style="display:none;">
+        <div class="card" style="border-color: var(--accent); border-width: 2px; text-align: center;">
+          <div style="font-size: 18px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); margin-bottom: 10px;">Deposit Required</div>
+          <div id="depositMsg" style="font-size: 28px; font-weight: 700; color: var(--text); margin-bottom: 8px;"></div>
+          <div id="depositDescription" style="display:none; font-size: 14px; color: var(--text-muted); margin-bottom: 20px;"></div>
+          <div id="depositLinks" style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -416,6 +425,28 @@
 
         document.getElementById('bookingUI').style.display = 'none';
         document.getElementById('confirmedState').style.display = 'block';
+
+        if (data.deposit) {
+          const amount = parseFloat(data.deposit.amount);
+          const formatted = amount % 1 === 0 ? amount.toFixed(0) : amount.toFixed(2);
+          document.getElementById('depositMsg').textContent = `$${formatted}`;
+
+          const descEl = document.getElementById('depositDescription');
+          if (data.deposit.description) {
+            descEl.textContent = data.deposit.description;
+            descEl.style.display = 'block';
+          }
+
+          document.getElementById('depositLinks').innerHTML = (data.deposit.links || []).map(l => {
+            const safeUrl = /^https?:\/\//.test(l.url) ? l.url : '#';
+            const div = document.createElement('div');
+            div.textContent = l.label;
+            return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer"
+              class="btn btn-primary" style="font-size: 15px; padding: 10px 24px;">${div.innerHTML}</a>`;
+          }).join('');
+          document.getElementById('depositPrompt').style.display = 'block';
+        }
+
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } catch (err) {
         alertEl.innerHTML = `<div class="alert alert-error">Network error: ${err.message}</div>`;

@@ -96,13 +96,12 @@ router.post('/', async (req, res) => {
 router.get('/settings', async (req, res) => {
   const { data, error } = await supabase
     .from('artists')
-    .select('work_start_hour, work_end_hour, days_off, buffer_minutes, display_name')
+    .select('work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description')
     .eq('id', req.user.id)
     .single();
 
   if (error || !data) {
-    // Profile not yet created — return defaults
-    return res.json({ work_start_hour: 9, work_end_hour: 21, days_off: [], buffer_minutes: 0, display_name: '' });
+    return res.json({ work_start_hour: 9, work_end_hour: 21, days_off: [], buffer_minutes: 0, display_name: '', deposit_enabled: false, deposit_amount: null, deposit_links: [], deposit_description: '' });
   }
 
   res.json({
@@ -111,12 +110,16 @@ router.get('/settings', async (req, res) => {
     days_off:        data.days_off        ?? [],
     buffer_minutes:  data.buffer_minutes  ?? 0,
     display_name:    data.display_name    ?? '',
+    deposit_enabled:     data.deposit_enabled     ?? false,
+    deposit_amount:      data.deposit_amount      ?? null,
+    deposit_links:       data.deposit_links       ?? [],
+    deposit_description: data.deposit_description ?? '',
   });
 });
 
 // POST /api/requests/settings — save artist's scheduling settings
 router.post('/settings', async (req, res) => {
-  const { work_start_hour, work_end_hour, days_off, buffer_minutes, display_name } = req.body;
+  const { work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description } = req.body;
 
   const start = parseInt(work_start_hour);
   const end   = parseInt(work_end_hour);
@@ -138,6 +141,16 @@ router.post('/settings', async (req, res) => {
     return res.status(400).json({ error: 'days_off must be an array of integers 0–6' });
   }
 
+  // Validate deposit fields
+  const depEnabled = !!deposit_enabled;
+  const depAmount  = deposit_amount != null ? parseFloat(deposit_amount) : null;
+  if (depEnabled && (depAmount == null || isNaN(depAmount) || depAmount < 0)) {
+    return res.status(400).json({ error: 'deposit_amount must be a positive number when deposit is enabled' });
+  }
+  if (!Array.isArray(deposit_links) || deposit_links.some(l => !l.label || !l.url)) {
+    return res.status(400).json({ error: 'deposit_links must be an array of {label, url} objects' });
+  }
+
   const { data, error } = await supabase
     .from('artists')
     .upsert({
@@ -148,8 +161,12 @@ router.post('/settings', async (req, res) => {
       days_off,
       buffer_minutes: buf,
       display_name: (display_name || '').trim() || null,
+      deposit_enabled:     depEnabled,
+      deposit_amount:      depEnabled ? depAmount : null,
+      deposit_links:       deposit_links,
+      deposit_description: (deposit_description || '').trim() || null,
     }, { onConflict: 'id' })
-    .select('work_start_hour, work_end_hour, days_off, buffer_minutes, display_name')
+    .select('work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description')
     .single();
 
   if (error) return res.status(500).json({ error: error.message });
