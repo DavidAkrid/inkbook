@@ -150,7 +150,8 @@
     async function loadSlots() {
       const container = document.getElementById('slotsContainer');
       try {
-        const res = await fetch(`/api/book/${token}/availability?days=30`);
+        const days = requestData.booking_days_ahead || 30;
+        const res = await fetch(`/api/book/${token}/availability?days=${days}`);
         const data = await res.json();
 
         if (!res.ok) {

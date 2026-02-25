@@ -96,7 +96,7 @@ router.post('/', async (req, res) => {
 router.get('/settings', async (req, res) => {
   const { data, error } = await supabase
     .from('artists')
-    .select('work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print')
+    .select('work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print, booking_days_ahead')
     .eq('id', req.user.id)
     .single();
 
@@ -114,13 +114,14 @@ router.get('/settings', async (req, res) => {
     deposit_amount:      data.deposit_amount      ?? null,
     deposit_links:       data.deposit_links       ?? [],
     deposit_description: data.deposit_description ?? '',
-    deposit_fine_print:  data.deposit_fine_print  ?? '',
+    deposit_fine_print:   data.deposit_fine_print  ?? '',
+    booking_days_ahead:   data.booking_days_ahead  ?? 30,
   });
 });
 
 // POST /api/requests/settings — save artist's scheduling settings
 router.post('/settings', async (req, res) => {
-  const { work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print } = req.body;
+  const { work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print, booking_days_ahead } = req.body;
 
   const start = parseInt(work_start_hour);
   const end   = parseInt(work_end_hour);
@@ -137,6 +138,10 @@ router.post('/settings', async (req, res) => {
   }
   if (isNaN(buf) || buf < 0 || buf > 120) {
     return res.status(400).json({ error: 'buffer_minutes must be 0–120' });
+  }
+  const daysAhead = parseInt(booking_days_ahead) || 30;
+  if (daysAhead < 7 || daysAhead > 365) {
+    return res.status(400).json({ error: 'booking_days_ahead must be between 7 and 365' });
   }
   if (!Array.isArray(days_off) || days_off.some(d => !Number.isInteger(d) || d < 0 || d > 6)) {
     return res.status(400).json({ error: 'days_off must be an array of integers 0–6' });
@@ -166,9 +171,10 @@ router.post('/settings', async (req, res) => {
       deposit_amount:      depEnabled ? depAmount : null,
       deposit_links:       deposit_links,
       deposit_description: (deposit_description || '').trim() || null,
-      deposit_fine_print:  (deposit_fine_print  || '').trim() || null,
+      deposit_fine_print:   (deposit_fine_print  || '').trim() || null,
+      booking_days_ahead:   daysAhead,
     }, { onConflict: 'id' })
-    .select('work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print')
+    .select('work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print, booking_days_ahead')
     .single();
 
   if (error) return res.status(500).json({ error: error.message });

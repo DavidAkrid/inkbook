@@ -10,7 +10,7 @@ router.get('/:token', async (req, res) => {
 
   const { data: request, error } = await supabase
     .from('booking_requests')
-    .select('id, client_name, duration_hours, notes, status, expires_at, artists(name, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print)')
+    .select('id, client_name, duration_hours, notes, status, expires_at, artists(name, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print, booking_days_ahead)')
     .eq('token', token)
     .single();
 
@@ -56,12 +56,13 @@ router.get('/:token', async (req, res) => {
   }
 
   res.json({
-    client_name:    request.client_name,
-    duration_hours: request.duration_hours,
-    notes:          request.notes,
-    status:         request.status,
-    expires_at:     request.expires_at,
-    artist_name:    artist?.display_name || artist?.name || null,
+    client_name:        request.client_name,
+    duration_hours:     request.duration_hours,
+    notes:              request.notes,
+    status:             request.status,
+    expires_at:         request.expires_at,
+    artist_name:        artist?.display_name || artist?.name || null,
+    booking_days_ahead: artist?.booking_days_ahead ?? 30,
   });
 });
 

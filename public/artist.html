@@ -161,6 +161,17 @@
         </div>
 
         <div class="form-group">
+          <label>How Far Ahead Clients Can Book</label>
+          <select id="settingsDaysAhead">
+            <option value="14">2 weeks</option>
+            <option value="30">1 month</option>
+            <option value="60">2 months</option>
+            <option value="90">3 months</option>
+            <option value="180">6 months</option>
+          </select>
+        </div>
+
+        <div class="form-group">
           <label>Buffer Between Appointments</label>
           <select id="settingsBuffer">
             <option value="0">No buffer</option>
@@ -470,7 +481,8 @@
           document.getElementById('settingsDisplayName').value = s.display_name || '';
           document.getElementById('settingsStart').value  = s.work_start_hour;
           document.getElementById('settingsEnd').value    = s.work_end_hour;
-          document.getElementById('settingsBuffer').value = s.buffer_minutes;
+          document.getElementById('settingsBuffer').value    = s.buffer_minutes;
+          document.getElementById('settingsDaysAhead').value = s.booking_days_ahead ?? 30;
           document.querySelectorAll('#settingsOverlay input[type=checkbox][value]').forEach(cb => {
             cb.checked = (s.days_off || []).includes(parseInt(cb.value));
           });
@@ -551,7 +563,8 @@
             work_start_hour: parseInt(document.getElementById('settingsStart').value),
             work_end_hour:   parseInt(document.getElementById('settingsEnd').value),
             days_off:        daysOff,
-            buffer_minutes:  parseInt(document.getElementById('settingsBuffer').value),
+            buffer_minutes:      parseInt(document.getElementById('settingsBuffer').value),
+            booking_days_ahead:  parseInt(document.getElementById('settingsDaysAhead').value),
             deposit_enabled:     depositEnabled,
             deposit_amount:      depositAmount,
             deposit_links:       getDepositLinks(),

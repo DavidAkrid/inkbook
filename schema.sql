@@ -66,6 +66,7 @@ ALTER TABLE artists ADD COLUMN IF NOT EXISTS deposit_amount      NUMERIC;
 ALTER TABLE artists ADD COLUMN IF NOT EXISTS deposit_links       JSONB NOT NULL DEFAULT '[]';
 ALTER TABLE artists ADD COLUMN IF NOT EXISTS deposit_description TEXT;
 ALTER TABLE artists ADD COLUMN IF NOT EXISTS deposit_fine_print  TEXT;
+ALTER TABLE artists ADD COLUMN IF NOT EXISTS booking_days_ahead SMALLINT NOT NULL DEFAULT 30;
 
 -- ============================================================
 -- Indexes

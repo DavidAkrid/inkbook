@@ -102,15 +102,22 @@ async function getAvailableSlots(durationHours, daysAhead = 30, artistTokens, se
   const timeMin = etHourToUTC(firstDayET, workStart);
   const timeMax = etHourToUTC(lastDayET, workEnd);
 
-  const freebusyRes = await calendar.freebusy.query({
-    requestBody: {
-      timeMin: timeMin.toISOString(),
-      timeMax: timeMax.toISOString(),
-      items: [{ id: calendarId }],
-    },
-  });
-
-  const busyPeriods = freebusyRes.data.calendars[calendarId]?.busy || [];
+  // Google's freebusy API rejects ranges over ~60 days, so chunk large requests.
+  const CHUNK_MS = 60 * 24 * 60 * 60 * 1000; // 60 days in ms
+  const busyPeriods = [];
+  let chunkStart = new Date(timeMin);
+  while (chunkStart < timeMax) {
+    const chunkEnd = new Date(Math.min(chunkStart.getTime() + CHUNK_MS, timeMax.getTime()));
+    const freebusyRes = await calendar.freebusy.query({
+      requestBody: {
+        timeMin: chunkStart.toISOString(),
+        timeMax: chunkEnd.toISOString(),
+        items: [{ id: calendarId }],
+      },
+    });
+    busyPeriods.push(...(freebusyRes.data.calendars[calendarId]?.busy || []));
+    chunkStart = new Date(chunkEnd);
+  }
 
   const slots = [];
   let curDayET = firstDayET;
