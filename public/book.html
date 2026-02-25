@@ -92,6 +92,7 @@
           <div id="depositDescription" style="display:none; font-size: 14px; color: var(--text-muted); margin-bottom: 20px; white-space: pre-wrap;"></div>
           <div id="depositLinks" style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;"></div>
         </div>
+        <div id="depositFinePrint" style="display:none; font-size: 12px; color: var(--text-muted); opacity: 0.6; padding: 8px 4px; white-space: pre-wrap;"></div>
       </div>
     </div>
   </div>
@@ -416,6 +417,15 @@
       }
     }
 
+    function formatDesc(text) {
+      // HTML-escape first, then apply *italic* and **bold** markdown
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>');
+    }
+
     function showConfirmed(data) {
       if (data.start_time && data.end_time) {
         const startDate = new Date(data.start_time);
@@ -444,17 +454,29 @@
 
         const descEl = document.getElementById('depositDescription');
         if (data.deposit.description) {
-          descEl.textContent = data.deposit.description;
+          descEl.innerHTML = formatDesc(data.deposit.description);
           descEl.style.display = 'block';
         }
 
-        document.getElementById('depositLinks').innerHTML = (data.deposit.links || []).map(l => {
-          const safeUrl = /^https?:\/\//.test(l.url) ? l.url : '#';
-          const div = document.createElement('div');
-          div.textContent = l.label;
-          return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer"
-            class="btn btn-primary" style="font-size: 15px; padding: 10px 24px;">${div.innerHTML}</a>`;
-        }).join('');
+        const linksEl = document.getElementById('depositLinks');
+        linksEl.innerHTML = '';
+        (data.deposit.links || []).forEach(l => {
+          if (!/^https?:\/\//.test(l.url)) return;
+          const a = document.createElement('a');
+          a.href = l.url;
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          a.className = 'btn btn-primary';
+          a.style.cssText = 'font-size: 15px; padding: 10px 24px;';
+          a.textContent = l.label;
+          linksEl.appendChild(a);
+        });
+        const finePrintEl = document.getElementById('depositFinePrint');
+        if (data.deposit.fine_print) {
+          finePrintEl.innerHTML = formatDesc(data.deposit.fine_print);
+          finePrintEl.style.display = 'block';
+        }
+
         document.getElementById('depositPrompt').style.display = 'block';
       }
 

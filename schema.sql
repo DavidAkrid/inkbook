@@ -65,6 +65,7 @@ ALTER TABLE artists ADD COLUMN IF NOT EXISTS deposit_enabled     BOOLEAN NOT NUL
 ALTER TABLE artists ADD COLUMN IF NOT EXISTS deposit_amount      NUMERIC;
 ALTER TABLE artists ADD COLUMN IF NOT EXISTS deposit_links       JSONB NOT NULL DEFAULT '[]';
 ALTER TABLE artists ADD COLUMN IF NOT EXISTS deposit_description TEXT;
+ALTER TABLE artists ADD COLUMN IF NOT EXISTS deposit_fine_print  TEXT;
 
 -- ============================================================
 -- Indexes

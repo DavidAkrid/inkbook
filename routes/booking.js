@@ -10,7 +10,7 @@ router.get('/:token', async (req, res) => {
 
   const { data: request, error } = await supabase
     .from('booking_requests')
-    .select('id, client_name, duration_hours, notes, status, expires_at, artists(name, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description)')
+    .select('id, client_name, duration_hours, notes, status, expires_at, artists(name, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print)')
     .eq('token', token)
     .single();
 
@@ -34,8 +34,9 @@ router.get('/:token', async (req, res) => {
 
     const deposit = artist?.deposit_enabled ? {
       amount:      artist.deposit_amount,
-      links:       artist.deposit_links       || [],
-      description: artist.deposit_description || null,
+      links:       artist.deposit_links        || [],
+      description: artist.deposit_description  || null,
+      fine_print:  artist.deposit_fine_print   || null,
     } : null;
 
     return res.json({
@@ -116,7 +117,7 @@ router.post('/:token', async (req, res) => {
 
   const { data: request, error } = await supabase
     .from('booking_requests')
-    .select('*, artists(google_refresh_token, google_calendar_id, email, deposit_enabled, deposit_amount, deposit_links, deposit_description)')
+    .select('*, artists(google_refresh_token, google_calendar_id, email, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print)')
     .eq('token', token)
     .single();
 

@@ -96,7 +96,7 @@ router.post('/', async (req, res) => {
 router.get('/settings', async (req, res) => {
   const { data, error } = await supabase
     .from('artists')
-    .select('work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description')
+    .select('work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print')
     .eq('id', req.user.id)
     .single();
 
@@ -114,12 +114,13 @@ router.get('/settings', async (req, res) => {
     deposit_amount:      data.deposit_amount      ?? null,
     deposit_links:       data.deposit_links       ?? [],
     deposit_description: data.deposit_description ?? '',
+    deposit_fine_print:  data.deposit_fine_print  ?? '',
   });
 });
 
 // POST /api/requests/settings — save artist's scheduling settings
 router.post('/settings', async (req, res) => {
-  const { work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description } = req.body;
+  const { work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print } = req.body;
 
   const start = parseInt(work_start_hour);
   const end   = parseInt(work_end_hour);
@@ -165,8 +166,9 @@ router.post('/settings', async (req, res) => {
       deposit_amount:      depEnabled ? depAmount : null,
       deposit_links:       deposit_links,
       deposit_description: (deposit_description || '').trim() || null,
+      deposit_fine_print:  (deposit_fine_print  || '').trim() || null,
     }, { onConflict: 'id' })
-    .select('work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description')
+    .select('work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print')
     .single();
 
   if (error) return res.status(500).json({ error: error.message });

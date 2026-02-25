@@ -194,7 +194,12 @@
 
           <div class="form-group">
             <label>Message to Client <span style="font-weight:400; text-transform:none; letter-spacing:0; color:var(--text-muted); font-size:11px;">(optional)</span></label>
-            <textarea id="settingsDepositDescription" rows="2" placeholder="e.g. Please send your deposit within 24 hours to secure your spot."></textarea>
+            <textarea id="settingsDepositDescription" rows="2" placeholder="e.g. Please send your deposit within 24 hours. Supports *italic* and **bold**."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Fine Print <span style="font-weight:400; text-transform:none; letter-spacing:0; color:var(--text-muted); font-size:11px;">(optional)</span></label>
+            <textarea id="settingsDepositFinePrint" rows="2" placeholder="e.g. Non-refundable. Applies toward your session total. Supports *italic* and **bold**."></textarea>
           </div>
 
           <div class="form-group" style="margin-bottom: 0;">
@@ -473,6 +478,7 @@
           document.getElementById('settingsDepositEnabled').checked = !!s.deposit_enabled;
           document.getElementById('settingsDepositAmount').value = s.deposit_amount ?? '';
           document.getElementById('settingsDepositDescription').value = s.deposit_description ?? '';
+          document.getElementById('settingsDepositFinePrint').value  = s.deposit_fine_print  ?? '';
           document.getElementById('depositLinksList').innerHTML = '';
           (s.deposit_links || []).forEach(l => addDepositLink(l.label, l.url));
           toggleDepositSettings();
@@ -550,6 +556,7 @@
             deposit_amount:      depositAmount,
             deposit_links:       getDepositLinks(),
             deposit_description: document.getElementById('settingsDepositDescription').value.trim(),
+            deposit_fine_print:  document.getElementById('settingsDepositFinePrint').value.trim(),
           }),
         });
         const data = await res.json();
