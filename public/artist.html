@@ -482,6 +482,7 @@
       }
 
       document.getElementById('settingsOverlay').style.display = 'flex';
+      document.body.style.overflow = 'hidden';
     }
 
     function toggleDepositSettings() {
@@ -569,6 +570,7 @@
     function closeSettings() {
       document.getElementById('settingsOverlay').style.display = 'none';
       document.getElementById('settingsAlert').style.display = 'none';
+      document.body.style.overflow = '';
     }
 
     // ── Utilities ─────────────────────────────────────────────────────────────
