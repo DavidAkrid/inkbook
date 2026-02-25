@@ -585,6 +585,44 @@ input[type="file"] {
   transform: translateX(16px);
 }
 
+/* Rainbow animations */
+@keyframes rainbow-shift {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+@keyframes rainbow-border {
+  0%   { border-color: #ff4444; }
+  16%  { border-color: #ff8800; }
+  33%  { border-color: #ffdd00; }
+  50%  { border-color: #44cc44; }
+  66%  { border-color: #44aaff; }
+  83%  { border-color: #aa44ff; }
+  100% { border-color: #ff4444; }
+}
+
+.rainbow-text {
+  background: linear-gradient(90deg, #ff4444, #ff8800, #ffdd00, #44cc44, #44aaff, #aa44ff, #ff4444);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: rainbow-shift 3s linear infinite;
+}
+
+.rainbow-border {
+  border-width: 2px;
+  border-style: solid;
+  animation: rainbow-border 3s linear infinite;
+}
+
+.rainbow-btn {
+  background: linear-gradient(90deg, #ff4444, #ff8800, #ffdd00, #44cc44, #44aaff, #aa44ff, #ff4444);
+  background-size: 200% auto;
+  color: #111;
+  animation: rainbow-shift 3s linear infinite;
+}
+
 /* Empty state */
 .empty {
   text-align: center;

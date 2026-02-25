@@ -86,8 +86,8 @@
       </div>
 
       <div id="depositPrompt" style="display:none;">
-        <div class="card" style="border-color: var(--accent); border-width: 2px; text-align: center;">
-          <div style="font-size: 18px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); margin-bottom: 10px;">Deposit Required</div>
+        <div class="card rainbow-border" style="text-align: center;">
+          <div class="rainbow-text" style="font-size: 18px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">Deposit Required</div>
           <div id="depositMsg" style="font-size: 28px; font-weight: 700; color: var(--text); margin-bottom: 8px;"></div>
           <div id="depositDescription" style="display:none; font-size: 14px; color: var(--text-muted); margin-bottom: 20px; white-space: pre-wrap;"></div>
           <div id="depositLinks" style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;"></div>
@@ -467,7 +467,7 @@
           a.target = '_blank';
           a.rel = 'noopener noreferrer';
           a.className = 'btn btn-primary';
-          a.style.cssText = 'font-size: 15px; padding: 10px 24px;';
+          a.style.cssText = 'font-size: 15px; padding: 10px 24px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -3px 0 rgba(0,0,0,0.25), 0 3px 6px rgba(0,0,0,0.3);';
           a.textContent = l.label;
           linksEl.appendChild(a);
         });
