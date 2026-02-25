@@ -177,7 +177,7 @@ async function createCalendarEvent({ clientName, clientEmail, artistEmail, start
   if (clientEmail) attendees.push({ email: clientEmail });
 
   const event = {
-    summary: `BOOKING — ${clientName}`,
+    summary: clientName,
     description,
     start: { dateTime: startTime, timeZone: 'America/New_York' },
     end: { dateTime: endTime, timeZone: 'America/New_York' },
