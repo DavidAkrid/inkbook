@@ -183,8 +183,9 @@ router.post('/:token', async (req, res) => {
 
   const deposit = artist.deposit_enabled ? {
     amount:      artist.deposit_amount,
-    links:       artist.deposit_links       || [],
-    description: artist.deposit_description || null,
+    links:       artist.deposit_links        || [],
+    description: artist.deposit_description  || null,
+    fine_print:  artist.deposit_fine_print   || null,
   } : null;
 
   res.status(201).json({
