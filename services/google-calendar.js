@@ -102,22 +102,27 @@ async function getAvailableSlots(durationHours, daysAhead = 30, artistTokens, se
   const timeMin = etHourToUTC(firstDayET, workStart);
   const timeMax = etHourToUTC(lastDayET, workEnd);
 
-  // Google's freebusy API rejects ranges over ~60 days, so chunk large requests.
-  const CHUNK_MS = 60 * 24 * 60 * 60 * 1000; // 60 days in ms
-  const busyPeriods = [];
-  let chunkStart = new Date(timeMin);
-  while (chunkStart < timeMax) {
-    const chunkEnd = new Date(Math.min(chunkStart.getTime() + CHUNK_MS, timeMax.getTime()));
-    const freebusyRes = await calendar.freebusy.query({
-      requestBody: {
-        timeMin: chunkStart.toISOString(),
-        timeMax: chunkEnd.toISOString(),
-        items: [{ id: calendarId }],
-      },
-    });
-    busyPeriods.push(...(freebusyRes.data.calendars[calendarId]?.busy || []));
-    chunkStart = new Date(chunkEnd);
-  }
+  // Use events.list instead of freebusy so all-day events are treated as busy
+  // regardless of their "Show as: Free/Busy" setting in Google Calendar.
+  // (All-day events default to "Free" when created by clicking the day header,
+  // so freebusy silently skips them.)
+  // Start 1ms before midnight ET so all-day events on firstDayET are included
+  // (events.list timeMin is exclusive, and all-day events start at midnight ET).
+  const eventsMin = new Date(etHourToUTC(firstDayET, 0).getTime() - 1);
+  const eventsRes = await calendar.events.list({
+    calendarId,
+    timeMin: eventsMin.toISOString(),
+    timeMax: timeMax.toISOString(),
+    singleEvents: true,
+    orderBy: 'startTime',
+    maxResults: 500,
+  });
+  const busyPeriods = (eventsRes.data.items || [])
+    .filter(e => e.status !== 'cancelled')
+    .map(e => ({
+      start: e.start.dateTime || etHourToUTC(e.start.date, 0).toISOString(),
+      end:   e.end.dateTime   || etHourToUTC(e.end.date,   0).toISOString(),
+    }));
 
   const slots = [];
   let curDayET = firstDayET;
@@ -220,8 +225,10 @@ async function getCalendarEventTitles(daysAhead, artistTokens, startFromToday = 
   const firstDayET = startFromToday ? todayET : addETDays(todayET, 1);
   const lastDayET  = addETDays(todayET, daysAhead);
 
-  // Start of first ET day → start of the day after the last ET day (exclusive)
-  const timeMin = etHourToUTC(firstDayET, 0);
+  // timeMin is 1ms before midnight ET of firstDayET so that all-day events on
+  // firstDayET are included — events.list timeMin is exclusive, and all-day
+  // events start at exactly midnight ET, so they'd be filtered out otherwise.
+  const timeMin = new Date(etHourToUTC(firstDayET, 0).getTime() - 1);
   const timeMax = etHourToUTC(addETDays(lastDayET, 1), 0);
 
   const res = await calendar.events.list({
@@ -234,9 +241,12 @@ async function getCalendarEventTitles(daysAhead, artistTokens, startFromToday = 
 
   return (res.data.items || []).map(e => ({
     title: e.summary || 'Event',
-    // All-day events have .date instead of .dateTime — expand to full day
-    start: e.start.dateTime || (e.start.date + 'T00:00:00'),
-    end:   e.end.dateTime   || (e.end.date   + 'T23:59:59'),
+    // All-day events have .date instead of .dateTime.
+    // Use etHourToUTC so the times are explicit UTC ISO strings (no ambiguous
+    // timezone-naive strings). Google's end.date is the exclusive next day,
+    // so midnight ET of end.date is the correct actual end of the event.
+    start: e.start.dateTime || etHourToUTC(e.start.date, 0).toISOString(),
+    end:   e.end.dateTime   || etHourToUTC(e.end.date,   0).toISOString(),
   }));
 }
 
