@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const supabase = require('../services/supabase');
 const { getAvailableSlots, createCalendarEvent } = require('../services/google-calendar');
+const { sendBookingConfirmation } = require('../services/email');
 
 // GET /api/book/:token — fetch booking request details for the client page
 // Client-facing: no authentication required
@@ -180,6 +181,15 @@ router.post('/:token', async (req, res) => {
     .from('booking_requests')
     .update({ status: 'booked' })
     .eq('id', request.id);
+
+  // Fire-and-forget email notification to artist
+  sendBookingConfirmation({
+    artistEmail: artist.email,
+    clientName: request.client_name,
+    startTime: startTime.toISOString(),
+    endTime: endTime.toISOString(),
+    notes: request.notes,
+  }).catch(() => {}); // already logged inside, don't block
 
   const deposit = artist.deposit_enabled ? {
     amount:      artist.deposit_amount,
