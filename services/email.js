@@ -1,17 +1,4 @@
-const nodemailer = require('nodemailer');
-
-function getTransporter() {
-  const { EMAIL_FROM, EMAIL_APP_PASSWORD } = process.env;
-  if (!EMAIL_FROM || !EMAIL_APP_PASSWORD) return null;
-
-  return nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: EMAIL_FROM,
-      pass: EMAIL_APP_PASSWORD,
-    },
-  });
-}
+const { Resend } = require('resend');
 
 function formatET(date) {
   return new Date(date).toLocaleString('en-US', {
@@ -27,11 +14,12 @@ function formatET(date) {
 }
 
 async function sendBookingConfirmation({ artistEmail, clientName, startTime, endTime, notes }) {
-  const transporter = getTransporter();
-  if (!transporter) {
-    console.log('Email skipped: EMAIL_FROM or EMAIL_APP_PASSWORD not set');
+  if (!process.env.RESEND_API_KEY) {
+    console.log('Email skipped: RESEND_API_KEY not set');
     return;
   }
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
 
   const durationMs = new Date(endTime) - new Date(startTime);
   const durationHours = durationMs / (1000 * 60 * 60);
@@ -48,8 +36,8 @@ async function sendBookingConfirmation({ artistEmail, clientName, startTime, end
   ].filter(line => line !== null).join('\n');
 
   try {
-    await transporter.sendMail({
-      from: process.env.EMAIL_FROM,
+    await resend.emails.send({
+      from: 'onboarding@resend.dev',
       to: artistEmail,
       subject: `New booking: ${clientName}`,
       text: body,
