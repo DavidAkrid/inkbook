@@ -18,6 +18,7 @@ const bookingLimiter = rateLimit({
 });
 
 const app = express();
+app.set('trust proxy', 1); // Required for express-rate-limit behind Vercel's proxy
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
