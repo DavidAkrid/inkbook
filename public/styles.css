@@ -12,6 +12,7 @@
   --danger: #e05252;
   --success: #52a852;
   --radius: 8px;
+  --slot-h: 30px;
 }
 
 body {
@@ -199,7 +200,7 @@ input[type="file"] {
   color: var(--text);
   cursor: pointer;
   font-size: 12px;
-  height: 30px;           /* fixed — must match JS SLOT_H constant */
+  height: var(--slot-h);  /* must match JS SLOT_H — set via CSS var, read in JS */
   padding: 0 4px;
   display: flex;
   align-items: center;
@@ -633,6 +634,10 @@ input[type="file"] {
 
 /* Mobile */
 @media (max-width: 480px) {
+  :root {
+    --slot-h: 44px;
+  }
+
   .container {
     padding: 24px 16px 60px;
   }
@@ -650,4 +655,18 @@ input[type="file"] {
 
   h1 { font-size: 20px; }
   h2 { font-size: 16px; }
+
+  .confirm-row {
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 0;
+  }
+
+  .confirm-row span:last-child {
+    font-size: 15px;
+  }
+
+  .week-nav .btn {
+    padding: 8px 16px;
+  }
 }

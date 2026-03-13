@@ -283,8 +283,8 @@
       renderWeek();
     }
 
-    // Must match CSS: .slot-btn { height: 30px } and .week-col { gap: 4px }
-    const SLOT_H   = 30;
+    // Reads --slot-h from CSS (30px desktop, 44px mobile) so busy-block heights stay correct
+    const SLOT_H   = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--slot-h')) || 30;
     const SLOT_GAP = 4;
 
     function renderDaySlots(slots) {
