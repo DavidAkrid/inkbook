@@ -1,5 +1,10 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+html {
+  overflow-x: hidden;
+  width: 100%;
+}
+
 :root {
   --bg: #0f0f0f;
   --surface: #1a1a1a;
@@ -271,6 +276,7 @@ input[type="file"] {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   padding-bottom: 4px;
+  max-width: 100%;
 }
 
 /* 7-column week grid */
