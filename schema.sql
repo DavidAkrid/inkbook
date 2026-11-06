@@ -74,7 +74,7 @@ ALTER TABLE artists ADD COLUMN IF NOT EXISTS time_blocks_mode TEXT  NOT NULL DEF
 ALTER TABLE booking_requests ADD COLUMN IF NOT EXISTS use_time_blocks BOOLEAN NOT NULL DEFAULT false;
 
 -- Appearance: the artist's look on their dashboard and their clients' booking pages
-ALTER TABLE artists ADD COLUMN IF NOT EXISTS theme        TEXT    NOT NULL DEFAULT 'classic'; -- classic | terminal-green | terminal-amber | terminal-purple | sunset
+ALTER TABLE artists ADD COLUMN IF NOT EXISTS theme        TEXT    NOT NULL DEFAULT 'classic'; -- classic | sunset | forest | deep-sea | rose | ink | terminal-green
 ALTER TABLE artists ADD COLUMN IF NOT EXISTS scanlines    BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE artists ADD COLUMN IF NOT EXISTS glow         BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE artists ADD COLUMN IF NOT EXISTS heading_font TEXT    NOT NULL DEFAULT 'default'; -- default | mono | serif | gothic

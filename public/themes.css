@@ -1,7 +1,7 @@
 /* ══════════════════════════════════════════════════════════════════════════
    Appearance — chosen per artist in Settings → Appearance. Loaded after styles.css.
    theme.js sets these on <html>:
-     data-theme      terminal-green | terminal-amber | terminal-purple | sunset  (none = Classic)
+     data-theme      sunset | forest | deep-sea | rose | ink | terminal-green  (none = Classic)
      data-scanlines  present = CRT scan lines over the page
      data-glow       present = soft glow on buttons, headings and selected times
      data-font       mono | serif | gothic  (headings only; none = Default)
@@ -18,20 +18,40 @@
   --success: #3ee6e0; --success-rgb: 62, 230, 224; --success-text: #9ff3ef;
   --danger: #ff3b3b; --danger-rgb: 255, 59, 59; --danger-text: #ff8a8a;
 }
-:root[data-theme="terminal-amber"] {
-  --bg: #050403; --surface: #0d0b08; --surface2: #15110b; --border: #3a2f1e;
-  --text: #f5e3c2; --text-muted: #94805e;
-  --accent: #ffb000; --accent-hover: #ffc640; --accent-rgb: 255, 176, 0; --on-accent: #1a1000;
-  --success: #5cd6a8; --success-rgb: 92, 214, 168; --success-text: #a3ebd0;
-  --danger: #ff3b3b; --danger-rgb: 255, 59, 59; --danger-text: #ff8a8a;
+/* Forest — deep green-black, soft moss, warm gold for "booked" */
+:root[data-theme="forest"] {
+  --bg: #0b100c; --surface: #121a14; --surface2: #1a241c; --border: #2a3a2d;
+  --text: #e4ecdf; --text-muted: #8a9a86;
+  --accent: #8fbf7a; --accent-hover: #a8d293; --accent-rgb: 143, 191, 122; --on-accent: #0f1a0c;
+  --success: #d9b86c; --success-rgb: 217, 184, 108; --success-text: #ecd59d;
+  --danger: #e07a5f; --danger-rgb: 224, 122, 95; --danger-text: #f0a893;
 }
-:root[data-theme="terminal-purple"] {
-  --bg: #050307; --surface: #0b080e; --surface2: #120e17; --border: #31253d;
-  --text: #e6d9f5; --text-muted: #85759a;
-  --accent: #b45cff; --accent-hover: #c886ff; --accent-rgb: 180, 92, 255; --on-accent: #12001f;
-  --success: #5cd6a8; --success-rgb: 92, 214, 168; --success-text: #a3ebd0;
-  --danger: #ff4d6a; --danger-rgb: 255, 77, 106; --danger-text: #ff9aab;
+/* Deep Sea — dark navy, soft aqua, sea-glass for "booked" */
+:root[data-theme="deep-sea"] {
+  --bg: #071219; --surface: #0d1b24; --surface2: #13252f; --border: #1f3a47;
+  --text: #dcecf2; --text-muted: #7f9ba6;
+  --accent: #6fc3d6; --accent-hover: #8fd4e3; --accent-rgb: 111, 195, 214; --on-accent: #04161d;
+  --success: #9be3b5; --success-rgb: 155, 227, 181; --success-text: #c3f0d3;
+  --danger: #ff8a80; --danger-rgb: 255, 138, 128; --danger-text: #ffb3ab;
 }
+/* Rose — charcoal with dusty pink, mint for "booked" */
+:root[data-theme="rose"] {
+  --bg: #120c0e; --surface: #1b1316; --surface2: #25191e; --border: #3a2830;
+  --text: #f3e6ea; --text-muted: #a68c95;
+  --accent: #e8a0b4; --accent-hover: #f2b8c8; --accent-rgb: 232, 160, 180; --on-accent: #2a1219;
+  --success: #9fd3b8; --success-rgb: 159, 211, 184; --success-text: #c5e7d5;
+  --danger: #ff6b6b; --danger-rgb: 255, 107, 107; --danger-text: #ff9e9e;
+}
+/* Ink — black and bone white, no color; gold for "booked" */
+:root[data-theme="ink"] {
+  --bg: #0a0a0a; --surface: #141414; --surface2: #1d1d1d; --border: #333;
+  --text: #f2ede4; --text-muted: #8f8a82;
+  --accent: #f2ede4; --accent-hover: #ffffff; --accent-rgb: 242, 237, 228; --on-accent: #0a0a0a;
+  --success: #c9b37e; --success-rgb: 201, 179, 126; --success-text: #e0d0a8;
+  --danger: #e05252; --danger-rgb: 224, 82, 82; --danger-text: #ff9999;
+}
+/* The accent is white here, so a white switch knob would vanish on its track */
+:root[data-theme="ink"] .toggle-switch input:checked + .toggle-slider:before { background: #0a0a0a; }
 :root[data-theme="sunset"] {
   --bg: #0c0709; --surface: #150e12; --surface2: #1e141a; --border: #33232b;
   --text: #f6e6dc; --text-muted: #a2847a;
