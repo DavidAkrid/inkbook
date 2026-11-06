@@ -3,6 +3,26 @@ const router = express.Router();
 const supabase = require('../services/supabase');
 const { getAvailableSlots, createCalendarEvent } = require('../services/google-calendar');
 const { sendBookingConfirmation } = require('../services/email');
+const { resolveTimeBlocks } = require('../services/time-blocks');
+
+// Artist columns needed to compute a request's slots
+const SLOT_ARTIST_COLS = 'google_refresh_token, google_calendar_id, work_start_hour, work_end_hour, days_off, buffer_minutes, booking_days_ahead, time_blocks, time_blocks_mode';
+
+/** Slots a client can currently book for this request (time blocks applied if enabled). */
+function slotsForRequest(request, artist, daysAhead) {
+  return getAvailableSlots(
+    request.duration_hours,
+    daysAhead,
+    { refreshToken: artist.google_refresh_token, calendarId: artist.google_calendar_id },
+    {
+      work_start_hour: artist.work_start_hour ?? 9,
+      work_end_hour:   artist.work_end_hour   ?? 21,
+      days_off:        artist.days_off        ?? [],
+      buffer_minutes:  artist.buffer_minutes  ?? 0,
+      time_blocks:     resolveTimeBlocks(request, artist),
+    }
+  );
+}
 
 // GET /api/book/:token — fetch booking request details for the client page
 // Client-facing: no authentication required
@@ -75,7 +95,7 @@ router.get('/:token/availability', async (req, res) => {
 
   const { data: request, error } = await supabase
     .from('booking_requests')
-    .select('*, artists(google_refresh_token, google_calendar_id, work_start_hour, work_end_hour, days_off, buffer_minutes)')
+    .select(`*, artists(${SLOT_ARTIST_COLS})`)
     .eq('token', token)
     .single();
 
@@ -91,18 +111,13 @@ router.get('/:token/availability', async (req, res) => {
   }
 
   try {
-    const slots = await getAvailableSlots(
-      request.duration_hours,
-      daysAhead,
-      { refreshToken: artist.google_refresh_token, calendarId: artist.google_calendar_id },
-      {
-        work_start_hour: artist.work_start_hour ?? 9,
-        work_end_hour:   artist.work_end_hour   ?? 21,
-        days_off:        artist.days_off        ?? [],
-        buffer_minutes:  artist.buffer_minutes  ?? 0,
-      }
-    );
-    res.json({ slots, duration_hours: request.duration_hours, days_off: artist.days_off ?? [] });
+    const slots = await slotsForRequest(request, artist, daysAhead);
+    res.json({
+      slots,
+      duration_hours: request.duration_hours,
+      days_off: artist.days_off ?? [],
+      time_blocks: !!resolveTimeBlocks(request, artist),
+    });
   } catch (err) {
     console.error('Calendar availability error:', err.message);
     res.status(500).json({ error: 'Failed to fetch calendar availability.' });
@@ -119,7 +134,7 @@ router.post('/:token', async (req, res) => {
 
   const { data: request, error } = await supabase
     .from('booking_requests')
-    .select('*, artists(google_refresh_token, google_calendar_id, email, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print)')
+    .select(`*, artists(${SLOT_ARTIST_COLS}, email, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print)`)
     .eq('token', token)
     .single();
 
@@ -135,7 +150,21 @@ router.post('/:token', async (req, res) => {
   }
 
   const startTime = new Date(start_time);
+  if (isNaN(startTime.getTime())) return res.status(400).json({ error: 'Invalid start_time' });
   const endTime = new Date(startTime.getTime() + request.duration_hours * 60 * 60 * 1000);
+
+  // Re-check against live availability so stale pages, double bookings, and
+  // times outside the artist's time blocks are rejected.
+  try {
+    const slots = await slotsForRequest(request, artist, artist.booking_days_ahead ?? 30);
+    const stillOpen = slots.some(s => s.available && new Date(s.start).getTime() === startTime.getTime());
+    if (!stillOpen) {
+      return res.status(409).json({ error: 'That time is no longer available. Please pick another time.', slot_taken: true });
+    }
+  } catch (err) {
+    console.error('Availability re-check failed:', err.message);
+    return res.status(500).json({ error: 'Could not verify availability. Please try again.' });
+  }
   const artistTokens = {
     refreshToken: artist.google_refresh_token,
     calendarId: artist.google_calendar_id,

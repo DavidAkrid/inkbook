@@ -105,6 +105,7 @@
     // Week calendar state
     let slotsByDate = {};       // { 'YYYY-MM-DD': [slot, ...] }
     let daysOff = [];           // [0-6] day-of-week indices the artist doesn't work
+    let blocksMode = false;     // true when the artist limits this link to time blocks
     let currentWeekStart = null;
     let firstWeekStart = null;
     let lastWeekStart = null;
@@ -169,6 +170,7 @@
         }
 
         daysOff = data.days_off || [];
+        blocksMode = !!data.time_blocks;
         buildSlotsByDate(data.slots);
         document.getElementById('weekNav').style.display = 'flex';
         renderWeek();
@@ -324,7 +326,20 @@
       return html;
     }
 
+    // Above the week grid, so it's visible after the confirm card is hidden
+    function showToastInline(msg) {
+      const container = document.getElementById('slotsContainer');
+      const note = document.createElement('div');
+      note.className = 'alert alert-error';
+      note.textContent = msg;
+      container.parentElement.insertBefore(note, container);
+      note.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => note.remove(), 8000);
+    }
+
     function highlightSpan(btn) {
+      // Time-block mode only lists start times, so other buttons aren't part of the span
+      if (blocksMode) return;
       const col = btn.closest('.week-col');
       const spanMs = requestData.duration_hours * 60 * 60 * 1000;
       const spanStart = new Date(btn.dataset.start).getTime();
@@ -347,10 +362,14 @@
       const spanMs   = requestData.duration_hours * 60 * 60 * 1000;
       const spanStart = new Date(start).getTime();
       const spanEnd   = spanStart + spanMs;
-      btn.closest('.week-col').querySelectorAll('.slot-btn').forEach(b => {
-        const t = new Date(b.dataset.start).getTime();
-        if (t >= spanStart && t < spanEnd) b.classList.add('selected');
-      });
+      if (blocksMode) {
+        btn.classList.add('selected');
+      } else {
+        btn.closest('.week-col').querySelectorAll('.slot-btn').forEach(b => {
+          const t = new Date(b.dataset.start).getTime();
+          if (t >= spanStart && t < spanEnd) b.classList.add('selected');
+        });
+      }
       selectedSlot = { start, end };
 
       // Build confirm details
@@ -402,9 +421,16 @@
         const data = await res.json();
 
         if (!res.ok) {
-          alertEl.innerHTML = `<div class="alert alert-error">${data.error}</div>`;
           btn.disabled = false;
           btn.textContent = 'Confirm Appointment';
+          if (data.slot_taken) {
+            // Someone else took it (or the calendar changed) — refresh the times
+            clearSelection();
+            showToastInline(data.error);
+            loadSlots();
+            return;
+          }
+          alertEl.innerHTML = `<div class="alert alert-error">${data.error}</div>`;
           return;
         }
 

@@ -69,6 +69,16 @@
           <textarea id="notes" name="notes" placeholder="Describe the design, placement, style, colors, references discussed, etc."></textarea>
         </div>
 
+        <div class="form-group" id="useBlocksGroup" style="display:none;">
+          <label class="toggle-row" for="use_time_blocks">
+            <span>Use Time Blocks <span style="font-weight:400; text-transform:none; letter-spacing:0; color:var(--text-muted); font-size:11px;">(client picks from your set sessions)</span></span>
+            <div class="toggle-switch">
+              <input type="checkbox" id="use_time_blocks">
+              <span class="toggle-slider"></span>
+            </div>
+          </label>
+        </div>
+
         <div id="formAlert"></div>
 
         <button type="submit" class="btn btn-primary btn-full" id="submitBtn">
@@ -185,6 +195,29 @@
         <div style="border-top: 1px solid var(--border); margin: 4px 0 20px;"></div>
 
         <div class="form-group">
+          <label>Time Blocks</label>
+          <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 10px;">
+            Clients pick from these sessions instead of any open time, so odd start times
+            don't break up your day. Same blocks every working day.
+          </p>
+          <select id="settingsBlocksMode" onchange="toggleBlockSettings()">
+            <option value="off">Off</option>
+            <option value="default_on">On by default (can untick per link)</option>
+            <option value="optional">Optional (tick per link)</option>
+          </select>
+        </div>
+
+        <div id="blockSettings" style="transition: opacity 0.15s;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <div id="blocksList" style="display: flex; flex-direction: column; gap: 8px;"></div>
+            <button type="button" onclick="addBlockRow()" class="btn btn-secondary"
+              style="margin-top: 10px; font-size: 13px; padding: 6px 14px;">+ Add Block</button>
+          </div>
+        </div>
+
+        <div style="border-top: 1px solid var(--border); margin: 20px 0 20px;"></div>
+
+        <div class="form-group">
           <label class="toggle-row" for="settingsDepositEnabled">
             <span>Require Deposit</span>
             <div class="toggle-switch">
@@ -264,6 +297,7 @@
             currentSession = session;
             document.getElementById('userEmail').textContent = session.user.email;
             await loadProfile();
+            loadBlockSettings();
             handleUrlParams();
             loadRequests();
           } else if (session) {
@@ -361,6 +395,7 @@
             client_name: document.getElementById('client_name').value,
             duration_hours: document.getElementById('duration_hours').value,
             notes: document.getElementById('notes').value,
+            use_time_blocks: blockSettings.mode !== 'off' && document.getElementById('use_time_blocks').checked,
           }),
         });
         const data = await res.json();
@@ -375,6 +410,7 @@
         document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
 
         this.reset();
+        applyBlockToggleDefault(); // reset() clears the checkbox; restore the artist's default
         loadRequests();
       } catch (err) {
         alertEl.innerHTML = `<div class="alert alert-error">Network error: ${err.message}</div>`;
@@ -421,6 +457,7 @@
                   ${r.duration_hours} hr${r.duration_hours !== 1 ? 's' : ''}
                   &middot; Created ${created}
                   &middot; Expires ${expires}
+                  ${r.use_time_blocks ? '&middot; Time blocks' : ''}
                 </div>
                 ${r.status !== 'booked' && !isExpired
                   ? `<a class="request-link" href="${url}" target="_blank">${url}</a>`
@@ -502,6 +539,11 @@
           document.getElementById('depositLinksList').innerHTML = '';
           (s.deposit_links || []).forEach(l => addDepositLink(l.label, l.url));
           toggleDepositSettings();
+          // Time blocks
+          document.getElementById('settingsBlocksMode').value = s.time_blocks_mode || 'off';
+          document.getElementById('blocksList').innerHTML = '';
+          (s.time_blocks || []).forEach(b => addBlockRow(b.start_min, b.end_min));
+          toggleBlockSettings();
         }
       } catch (err) {
         console.warn('Could not load settings:', err.message);
@@ -578,13 +620,19 @@
             deposit_links:       getDepositLinks(),
             deposit_description: document.getElementById('settingsDepositDescription').value.trim(),
             deposit_fine_print:  document.getElementById('settingsDepositFinePrint').value.trim(),
+            time_blocks_mode:    document.getElementById('settingsBlocksMode').value,
+            time_blocks:         getBlockRows(),
           }),
         });
         const data = await res.json();
         if (!res.ok) {
-          showToast(data.error || 'Failed to save settings.', 'error');
+          // Show inside the modal so it isn't hidden behind it
+          settingsAlert.textContent = data.error || 'Failed to save settings.';
+          settingsAlert.style.display = 'block';
           return;
         }
+        blockSettings = { mode: data.time_blocks_mode || 'off', blocks: data.time_blocks || [] };
+        applyBlockToggleDefault();
         showToast('Settings saved.', 'success');
         closeSettings();
       } catch (err) {
@@ -593,6 +641,68 @@
         btn.disabled = false;
         btn.textContent = 'Save';
       }
+    }
+
+    // ── Time blocks ───────────────────────────────────────────────────────────
+
+    let blockSettings = { mode: 'off', blocks: [] };
+
+    async function loadBlockSettings() {
+      try {
+        const res = await fetch('/api/requests/settings', { headers: authHeaders() });
+        if (!res.ok) return;
+        const s = await res.json();
+        blockSettings = { mode: s.time_blocks_mode || 'off', blocks: s.time_blocks || [] };
+        applyBlockToggleDefault();
+      } catch (err) {
+        console.warn('Could not load time block settings:', err.message);
+      }
+    }
+
+    // Show the per-link checkbox only when blocks are on; pre-tick for "On by default"
+    function applyBlockToggleDefault() {
+      const on = blockSettings.mode !== 'off' && blockSettings.blocks.length > 0;
+      document.getElementById('useBlocksGroup').style.display = on ? 'block' : 'none';
+      document.getElementById('use_time_blocks').checked = on && blockSettings.mode === 'default_on';
+    }
+
+    function toggleBlockSettings() {
+      const on = document.getElementById('settingsBlocksMode').value !== 'off';
+      const el = document.getElementById('blockSettings');
+      el.style.opacity = on ? '1' : '0.4';
+      el.style.pointerEvents = on ? 'auto' : 'none';
+      if (on && !document.querySelector('#blocksList > div')) addBlockRow();
+    }
+
+    function halfHourOptions(selectedMin) {
+      let html = '';
+      for (let m = 0; m <= 24 * 60; m += 30) {
+        const h = Math.floor(m / 60) % 24, mm = m % 60;
+        const label = m === 24 * 60 ? '12am (midnight)'
+          : `${h % 12 || 12}${mm ? ':30' : ''}${h < 12 ? 'am' : 'pm'}`;
+        html += `<option value="${m}"${m === selectedMin ? ' selected' : ''}>${label}</option>`;
+      }
+      return html;
+    }
+
+    function addBlockRow(startMin = 12 * 60, endMin = 16 * 60) {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex; gap:8px; align-items:center;';
+      row.innerHTML = `
+        <select class="block-start" style="flex:1; min-width:0;">${halfHourOptions(startMin)}</select>
+        <span style="color: var(--text-muted); font-size: 13px;">to</span>
+        <select class="block-end" style="flex:1; min-width:0;">${halfHourOptions(endMin)}</select>
+        <button type="button" onclick="this.parentElement.remove()"
+          class="btn btn-danger" style="padding:6px 10px; font-size:13px; flex-shrink:0;">✕</button>
+      `;
+      document.getElementById('blocksList').appendChild(row);
+    }
+
+    function getBlockRows() {
+      return [...document.querySelectorAll('#blocksList > div')].map(row => ({
+        start_min: parseInt(row.querySelector('.block-start').value),
+        end_min:   parseInt(row.querySelector('.block-end').value),
+      }));
     }
 
     function closeSettings() {

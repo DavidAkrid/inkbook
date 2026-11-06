@@ -68,6 +68,11 @@ ALTER TABLE artists ADD COLUMN IF NOT EXISTS deposit_description TEXT;
 ALTER TABLE artists ADD COLUMN IF NOT EXISTS deposit_fine_print  TEXT;
 ALTER TABLE artists ADD COLUMN IF NOT EXISTS booking_days_ahead SMALLINT NOT NULL DEFAULT 30;
 
+-- Time blocks: fixed daily sessions clients choose between (minutes after midnight ET)
+ALTER TABLE artists ADD COLUMN IF NOT EXISTS time_blocks      JSONB NOT NULL DEFAULT '[]';  -- [{start_min, end_min}]
+ALTER TABLE artists ADD COLUMN IF NOT EXISTS time_blocks_mode TEXT  NOT NULL DEFAULT 'off'; -- off | default_on | optional
+ALTER TABLE booking_requests ADD COLUMN IF NOT EXISTS use_time_blocks BOOLEAN NOT NULL DEFAULT false;
+
 -- ============================================================
 -- Indexes
 -- ============================================================
