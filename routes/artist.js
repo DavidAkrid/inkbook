@@ -7,7 +7,7 @@ const { getAvailableSlots, getCalendarEventTitles } = require('../services/googl
 const { MODES: TIME_BLOCK_MODES, validateTimeBlocks } = require('../services/time-blocks');
 
 // Keep in sync with public/theme.js
-const THEMES = ['classic', 'terminal-green', 'terminal-amber', 'terminal-purple', 'sunset'];
+const THEMES = ['classic', 'sunset', 'forest', 'deep-sea', 'rose', 'ink', 'terminal-green'];
 const HEADING_FONTS = ['default', 'mono', 'serif', 'gothic'];
 
 // All artist routes require authentication

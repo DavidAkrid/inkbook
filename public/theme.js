@@ -2,7 +2,7 @@
 // data-* attributes on <html>; themes.css does the rest. Loaded in <head> so the
 // dashboard can apply its cached look before first paint.
 (function () {
-  const THEMES = ['classic', 'terminal-green', 'terminal-amber', 'terminal-purple', 'sunset'];
+  const THEMES = ['classic', 'sunset', 'forest', 'deep-sea', 'rose', 'ink', 'terminal-green'];
   const FONTS  = ['default', 'mono', 'serif', 'gothic'];
   const CACHE_KEY = 'inkbook-appearance';
   const root = document.documentElement;
