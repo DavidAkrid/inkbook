@@ -14,8 +14,16 @@ html {
   --text-muted: #888;
   --accent: #9b7fd4;
   --accent-hover: #b59ae0;
+  --accent-rgb: 155, 127, 212;   /* same as --accent, for see-through tints and the glow */
+  --on-accent: #111;             /* text on an accent-colored background */
   --danger: #e05252;
+  --danger-rgb: 224, 82, 82;
+  --danger-text: #ff9999;
   --success: #52a852;
+  --success-rgb: 82, 168, 82;
+  --success-text: #99dd99;
+  --muted-rgb: 136, 136, 136;
+  --heading-font: inherit;
   --radius: 8px;
   --slot-h: 30px;
 }
@@ -128,7 +136,7 @@ input[type="file"] {
 
 .btn-primary {
   background: var(--accent);
-  color: #111;
+  color: var(--on-accent);
 }
 
 .btn-primary:hover { background: var(--accent-hover); }
@@ -147,7 +155,7 @@ input[type="file"] {
   border: 1px solid var(--danger);
 }
 
-.btn-danger:hover { background: rgba(224, 82, 82, 0.1); }
+.btn-danger:hover { background: rgba(var(--danger-rgb), 0.1); }
 
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
@@ -164,9 +172,9 @@ input[type="file"] {
   letter-spacing: 0.4px;
 }
 
-.badge-pending { background: rgba(155, 127, 212, 0.15); color: var(--accent); }
-.badge-booked { background: rgba(82, 168, 82, 0.15); color: var(--success); }
-.badge-expired { background: rgba(136, 136, 136, 0.15); color: var(--text-muted); }
+.badge-pending { background: rgba(var(--accent-rgb), 0.15); color: var(--accent); }
+.badge-booked { background: rgba(var(--success-rgb), 0.15); color: var(--success); }
+.badge-expired { background: rgba(var(--muted-rgb), 0.15); color: var(--text-muted); }
 
 /* Request list item */
 .request-item {
@@ -235,7 +243,7 @@ input[type="file"] {
 .slot-btn.selected {
   background: var(--accent);
   border-color: var(--accent);
-  color: #111;
+  color: var(--on-accent);
 }
 .slot-btn:disabled {
   opacity: 0.2;
@@ -245,13 +253,13 @@ input[type="file"] {
 
 /* Span highlight — applied to the full appointment block on hover */
 .slot-btn.span-highlight {
-  background: rgba(155, 127, 212, 0.15);
-  border-color: rgba(155, 127, 212, 0.5);
+  background: rgba(var(--accent-rgb), 0.15);
+  border-color: rgba(var(--accent-rgb), 0.5);
   color: var(--accent);
 }
 .slot-btn.span-highlight:disabled {
   opacity: 0.35;
-  border-color: rgba(155, 127, 212, 0.25);
+  border-color: rgba(var(--accent-rgb), 0.25);
 }
 
 /* Week calendar nav */
@@ -314,7 +322,7 @@ input[type="file"] {
 
 .week-day-header.is-today {
   color: var(--accent);
-  border-color: rgba(155, 127, 212, 0.4);
+  border-color: rgba(var(--accent-rgb), 0.4);
 }
 
 /* Placeholder when a day has no available slots */
@@ -382,8 +390,8 @@ input[type="file"] {
   margin-bottom: 16px;
 }
 
-.alert-error { background: rgba(224, 82, 82, 0.1); border: 1px solid rgba(224, 82, 82, 0.3); color: #ff9999; }
-.alert-success { background: rgba(82, 168, 82, 0.1); border: 1px solid rgba(82, 168, 82, 0.3); color: #99dd99; }
+.alert-error { background: rgba(var(--danger-rgb), 0.1); border: 1px solid rgba(var(--danger-rgb), 0.3); color: var(--danger-text); }
+.alert-success { background: rgba(var(--success-rgb), 0.1); border: 1px solid rgba(var(--success-rgb), 0.3); color: var(--success-text); }
 
 /* Confirmation screen */
 .confirm-icon {
@@ -527,7 +535,7 @@ input[type="file"] {
 .day-checkbox:has(input:checked) {
   background: var(--accent);
   border-color: var(--accent);
-  color: #111;
+  color: var(--on-accent);
 }
 
 /* Toggle switch */

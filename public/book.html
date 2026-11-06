@@ -1,10 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-page="client">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Book Your Appointment</title>
   <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/themes.css">
+  <script src="/theme.js"></script>
 </head>
 <body>
   <div class="container">
@@ -122,6 +124,7 @@
         }
 
         requestData = data;
+        InkbookTheme.applyAppearance(data.appearance); // the artist's chosen look
 
         // Populate design summary
         if (data.artist_name) {

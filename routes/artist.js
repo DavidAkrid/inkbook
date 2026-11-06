@@ -6,6 +6,10 @@ const authMiddleware = require('../middleware/auth');
 const { getAvailableSlots, getCalendarEventTitles } = require('../services/google-calendar');
 const { MODES: TIME_BLOCK_MODES, validateTimeBlocks } = require('../services/time-blocks');
 
+// Keep in sync with public/theme.js
+const THEMES = ['classic', 'terminal-green', 'terminal-amber', 'terminal-purple', 'sunset'];
+const HEADING_FONTS = ['default', 'mono', 'serif', 'gothic'];
+
 // All artist routes require authentication
 router.use(authMiddleware);
 
@@ -109,12 +113,12 @@ router.post('/', async (req, res) => {
 router.get('/settings', async (req, res) => {
   const { data, error } = await supabase
     .from('artists')
-    .select('work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print, booking_days_ahead, time_blocks, time_blocks_mode')
+    .select('work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print, booking_days_ahead, time_blocks, time_blocks_mode, theme, scanlines, glow, heading_font')
     .eq('id', req.user.id)
     .single();
 
   if (error || !data) {
-    return res.json({ work_start_hour: 9, work_end_hour: 21, days_off: [], buffer_minutes: 0, display_name: '', deposit_enabled: false, deposit_amount: null, deposit_links: [], deposit_description: '', time_blocks: [], time_blocks_mode: 'off' });
+    return res.json({ work_start_hour: 9, work_end_hour: 21, days_off: [], buffer_minutes: 0, display_name: '', deposit_enabled: false, deposit_amount: null, deposit_links: [], deposit_description: '', time_blocks: [], time_blocks_mode: 'off', theme: 'classic', scanlines: false, glow: false, heading_font: 'default' });
   }
 
   res.json({
@@ -131,12 +135,16 @@ router.get('/settings', async (req, res) => {
     booking_days_ahead:   data.booking_days_ahead  ?? 30,
     time_blocks:          data.time_blocks         ?? [],
     time_blocks_mode:     data.time_blocks_mode    ?? 'off',
+    theme:                data.theme               ?? 'classic',
+    scanlines:            data.scanlines           ?? false,
+    glow:                 data.glow                ?? false,
+    heading_font:         data.heading_font        ?? 'default',
   });
 });
 
 // POST /api/requests/settings — save artist's scheduling settings
 router.post('/settings', async (req, res) => {
-  const { work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print, booking_days_ahead, time_blocks, time_blocks_mode } = req.body;
+  const { work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print, booking_days_ahead, time_blocks, time_blocks_mode, theme, scanlines, glow, heading_font } = req.body;
 
   const start = parseInt(work_start_hour);
   const end   = parseInt(work_end_hour);
@@ -183,6 +191,12 @@ router.post('/settings', async (req, res) => {
     return res.status(400).json({ error: 'Add at least one time block, or turn time blocks off' });
   }
 
+  // Validate appearance
+  const themeVal = theme || 'classic';
+  const fontVal  = heading_font || 'default';
+  if (!THEMES.includes(themeVal)) return res.status(400).json({ error: 'Unknown theme' });
+  if (!HEADING_FONTS.includes(fontVal)) return res.status(400).json({ error: 'Unknown heading font' });
+
   const { data, error } = await supabase
     .from('artists')
     .upsert({
@@ -201,8 +215,12 @@ router.post('/settings', async (req, res) => {
       booking_days_ahead:   daysAhead,
       time_blocks:          blockCheck.blocks,
       time_blocks_mode:     blocksMode,
+      theme:                themeVal,
+      scanlines:            !!scanlines,
+      glow:                 !!glow,
+      heading_font:         fontVal,
     }, { onConflict: 'id' })
-    .select('work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print, booking_days_ahead, time_blocks, time_blocks_mode')
+    .select('work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print, booking_days_ahead, time_blocks, time_blocks_mode, theme, scanlines, glow, heading_font')
     .single();
 
   if (error) return res.status(500).json({ error: error.message });
