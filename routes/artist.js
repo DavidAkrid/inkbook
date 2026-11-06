@@ -4,6 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 const supabase = require('../services/supabase');
 const authMiddleware = require('../middleware/auth');
 const { getAvailableSlots, getCalendarEventTitles } = require('../services/google-calendar');
+const { MODES: TIME_BLOCK_MODES, validateTimeBlocks } = require('../services/time-blocks');
 
 // All artist routes require authentication
 router.use(authMiddleware);
@@ -55,7 +56,7 @@ router.get('/', async (req, res) => {
 
 // POST /api/requests — create a new booking request
 router.post('/', async (req, res) => {
-  const { client_name, duration_hours, notes, expires_in_days } = req.body;
+  const { client_name, duration_hours, notes, expires_in_days, use_time_blocks } = req.body;
 
   if (!client_name || !duration_hours) {
     return res.status(400).json({ error: 'client_name and duration_hours are required' });
@@ -71,6 +72,17 @@ router.post('/', async (req, res) => {
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + expiresInDays);
 
+  // Only honor the checkbox if the artist has time blocks turned on
+  let useBlocks = false;
+  if (use_time_blocks) {
+    const { data: artist } = await supabase
+      .from('artists')
+      .select('time_blocks_mode')
+      .eq('id', req.user.id)
+      .single();
+    useBlocks = !!artist && (artist.time_blocks_mode || 'off') !== 'off';
+  }
+
   const { data, error } = await supabase
     .from('booking_requests')
     .insert({
@@ -81,6 +93,7 @@ router.post('/', async (req, res) => {
       notes: notes || null,
       status: 'pending',
       expires_at: expiresAt.toISOString(),
+      use_time_blocks: useBlocks,
     })
     .select()
     .single();
@@ -96,12 +109,12 @@ router.post('/', async (req, res) => {
 router.get('/settings', async (req, res) => {
   const { data, error } = await supabase
     .from('artists')
-    .select('work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print, booking_days_ahead')
+    .select('work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print, booking_days_ahead, time_blocks, time_blocks_mode')
     .eq('id', req.user.id)
     .single();
 
   if (error || !data) {
-    return res.json({ work_start_hour: 9, work_end_hour: 21, days_off: [], buffer_minutes: 0, display_name: '', deposit_enabled: false, deposit_amount: null, deposit_links: [], deposit_description: '' });
+    return res.json({ work_start_hour: 9, work_end_hour: 21, days_off: [], buffer_minutes: 0, display_name: '', deposit_enabled: false, deposit_amount: null, deposit_links: [], deposit_description: '', time_blocks: [], time_blocks_mode: 'off' });
   }
 
   res.json({
@@ -116,12 +129,14 @@ router.get('/settings', async (req, res) => {
     deposit_description: data.deposit_description ?? '',
     deposit_fine_print:   data.deposit_fine_print  ?? '',
     booking_days_ahead:   data.booking_days_ahead  ?? 30,
+    time_blocks:          data.time_blocks         ?? [],
+    time_blocks_mode:     data.time_blocks_mode    ?? 'off',
   });
 });
 
 // POST /api/requests/settings — save artist's scheduling settings
 router.post('/settings', async (req, res) => {
-  const { work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print, booking_days_ahead } = req.body;
+  const { work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print, booking_days_ahead, time_blocks, time_blocks_mode } = req.body;
 
   const start = parseInt(work_start_hour);
   const end   = parseInt(work_end_hour);
@@ -157,6 +172,17 @@ router.post('/settings', async (req, res) => {
     return res.status(400).json({ error: 'deposit_links must be an array of {label, url} objects' });
   }
 
+  // Validate time blocks
+  const blocksMode = time_blocks_mode || 'off';
+  if (!TIME_BLOCK_MODES.includes(blocksMode)) {
+    return res.status(400).json({ error: 'time_blocks_mode must be off, default_on, or optional' });
+  }
+  const blockCheck = validateTimeBlocks(time_blocks ?? [], start, end);
+  if (blockCheck.error) return res.status(400).json({ error: blockCheck.error });
+  if (blocksMode !== 'off' && blockCheck.blocks.length === 0) {
+    return res.status(400).json({ error: 'Add at least one time block, or turn time blocks off' });
+  }
+
   const { data, error } = await supabase
     .from('artists')
     .upsert({
@@ -173,8 +199,10 @@ router.post('/settings', async (req, res) => {
       deposit_description: (deposit_description || '').trim() || null,
       deposit_fine_print:   (deposit_fine_print  || '').trim() || null,
       booking_days_ahead:   daysAhead,
+      time_blocks:          blockCheck.blocks,
+      time_blocks_mode:     blocksMode,
     }, { onConflict: 'id' })
-    .select('work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print, booking_days_ahead')
+    .select('work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print, booking_days_ahead, time_blocks, time_blocks_mode')
     .single();
 
   if (error) return res.status(500).json({ error: error.message });

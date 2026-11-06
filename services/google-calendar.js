@@ -77,7 +77,8 @@ async function exchangeCodeForTokens(code) {
  * @param {number} durationHours
  * @param {number} daysAhead
  * @param {{ refreshToken: string, calendarId: string }} artistTokens
- * @param {{ work_start_hour?: number, work_end_hour?: number, days_off?: number[], buffer_minutes?: number }} settings
+ * @param {{ work_start_hour?: number, work_end_hour?: number, days_off?: number[], buffer_minutes?: number, time_blocks?: {start_min:number,end_min:number}[]|null }} settings
+ *   Pass `time_blocks` only when blocks should apply to this request (see resolveTimeBlocks).
  */
 async function getAvailableSlots(durationHours, daysAhead = 30, artistTokens, settings = {}, startFromToday = false) {
   const auth = buildOAuthClient(artistTokens.refreshToken);
@@ -91,7 +92,6 @@ async function getAvailableSlots(durationHours, daysAhead = 30, artistTokens, se
 
   const now        = new Date();
   const durationMs     = durationHours * 60 * 60 * 1000;
-  const checkMs        = durationMs + bufferMs; // includes buffer for overlap detection
   const slotIntervalMs = 30 * 60 * 1000;
 
   // Work with ET calendar date strings so work hours are always Eastern, not UTC.
@@ -124,45 +124,81 @@ async function getAvailableSlots(durationHours, daysAhead = 30, artistTokens, se
       end:   e.end.dateTime   || etHourToUTC(e.end.date,   0).toISOString(),
     }));
 
+  return buildSlots(busyPeriods, {
+    firstDayET, lastDayET, workStart, workEnd, daysOff, bufferMs, durationMs, slotIntervalMs,
+    timeBlocks: settings.time_blocks || null,
+  });
+}
+
+/**
+ * Pure slot builder (no network) — split out so it can be tested directly.
+ *
+ * Buffer is applied on BOTH sides of every busy period: an appointment can't
+ * start within `buffer` after an event ends, or end within `buffer` before one starts.
+ *
+ * Normal mode: every 30-min start within working hours, typed available/overlap/busy.
+ * Time-block mode (timeBlocks = [{ start_min, end_min }], minutes after midnight ET):
+ *   each block offers at most ONE start time —
+ *   - the block's start, if the whole appointment fits (it may run past the block's
+ *     end, but not past working hours), otherwise
+ *   - the earliest free 30-min start later in the block where the appointment
+ *     (+ buffer, unless the block ends at closing time) finishes by the block's end.
+ *   Only offered starts are returned.
+ */
+function buildSlots(busyPeriods, opts) {
+  const { firstDayET, lastDayET, workStart, workEnd, daysOff, bufferMs, durationMs, slotIntervalMs, timeBlocks } = opts;
+
+  const busy = busyPeriods.map(b => ({ start: new Date(b.start).getTime(), end: new Date(b.end).getTime() }));
+
+  // 30-min window itself touches an event (no buffer) — used for the 'busy' display type
+  const windowBusy = (s) => busy.some(b => s < b.end && s + slotIntervalMs > b.start);
+  // Appointment [s, s+duration] conflicts with an event, with buffer on both sides
+  const conflicts = (s) => busy.some(b => s < b.end + bufferMs && s + durationMs + bufferMs > b.start);
+
   const slots = [];
   let curDayET = firstDayET;
 
   while (curDayET <= lastDayET) {
     // Skip days off (0=Sun … 6=Sat), checked in ET so the weekday is correct
     if (!daysOff.includes(etDayOfWeek(curDayET))) {
-      const dayStart = etHourToUTC(curDayET, workStart);
-      const dayEnd   = etHourToUTC(curDayET, workEnd);
-      let slotStart  = new Date(dayStart);
+      const dayEnd = etHourToUTC(curDayET, workEnd).getTime();
 
-      while (slotStart.getTime() + durationMs <= dayEnd.getTime()) {
-        const slotEnd   = new Date(slotStart.getTime() + durationMs);
-        const slotEnd30 = new Date(slotStart.getTime() + slotIntervalMs); // 30-min window
-        const checkEnd  = new Date(slotStart.getTime() + checkMs);        // duration + buffer
+      if (timeBlocks && timeBlocks.length) {
+        for (const block of timeBlocks) {
+          const bStart = etHourToUTC(curDayET, block.start_min / 60).getTime();
+          const bEnd   = etHourToUTC(curDayET, block.end_min / 60).getTime();
+          const tailMs = bEnd < dayEnd ? bufferMs : 0;
 
-        // Is the artist's own 30-min window occupied by an event?
-        const directlyBusy = busyPeriods.some((busy) => {
-          const busyStart = new Date(busy.start);
-          const busyEnd   = new Date(busy.end);
-          return slotStart < busyEnd && slotEnd30 > busyStart;
-        });
+          let offered = null;
+          if (bStart + durationMs <= dayEnd && !conflicts(bStart)) {
+            offered = bStart;
+          } else {
+            for (let s = bStart + slotIntervalMs; s + durationMs + tailMs <= bEnd; s += slotIntervalMs) {
+              if (!conflicts(s)) { offered = s; break; }
+            }
+          }
 
-        // Is the 30-min window free but the full appointment (+ buffer) would overlap?
-        const durationOverlaps = !directlyBusy && busyPeriods.some((busy) => {
-          const busyStart = new Date(busy.start);
-          const busyEnd   = new Date(busy.end);
-          return slotStart < busyEnd && checkEnd > busyStart;
-        });
-
-        const type = directlyBusy ? 'busy' : durationOverlaps ? 'overlap' : 'available';
-
-        slots.push({
-          start:     slotStart.toISOString(),
-          end:       slotEnd.toISOString(),
-          available: type === 'available',
-          type,
-        });
-
-        slotStart = new Date(slotStart.getTime() + slotIntervalMs);
+          if (offered !== null) {
+            slots.push({
+              start:     new Date(offered).toISOString(),
+              end:       new Date(offered + durationMs).toISOString(),
+              available: true,
+              type:      'available',
+            });
+          }
+        }
+      } else {
+        let s = etHourToUTC(curDayET, workStart).getTime();
+        while (s + durationMs <= dayEnd) {
+          const type = windowBusy(s) ? 'busy' : conflicts(s) ? 'overlap' : 'available';
+          slots.push({
+            start:     new Date(s).toISOString(),
+            end:       new Date(s + durationMs).toISOString(),
+            available: type === 'available',
+            type,
+          });
+          s += slotIntervalMs;
+        }
       }
     }
 
@@ -254,6 +290,7 @@ module.exports = {
   getCalendarAuthUrl,
   exchangeCodeForTokens,
   getAvailableSlots,
+  buildSlots,
   getCalendarEventTitles,
   createCalendarEvent,
 };
