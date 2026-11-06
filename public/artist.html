@@ -379,8 +379,8 @@
             // First valid session — initialize the dashboard
             currentSession = session;
             document.getElementById('userEmail').textContent = session.user.email;
+            loadBlockSettings(); // starts right away so the saved look applies as early as possible
             await loadProfile();
-            loadBlockSettings();
             handleUrlParams();
             loadRequests();
           } else if (session) {

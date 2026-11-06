@@ -110,6 +110,14 @@ h1, h2, .logo, .modal-title { font-family: var(--heading-font); }
 :root[data-font="gothic"] h1 { font-size: 28px; }
 :root[data-font="gothic"] h2 { font-size: 20px; }
 
+/* ── Client booking page header ── */
+.booking-logo { text-align: center; font-size: 34px; letter-spacing: -0.5px; margin: 8px 0 32px; }
+:root[data-font="gothic"] .booking-logo { font-size: 40px; letter-spacing: 0.5px; }
+@media (max-width: 480px) {
+  .booking-logo { font-size: 30px; margin-bottom: 24px; }
+  :root[data-font="gothic"] .booking-logo { font-size: 36px; }
+}
+
 /* ── Settings tabs ── */
 /* The modal is a flex item: without min-width 0 the unwrapped tab row would stretch it past a phone's edge */
 .modal { min-width: 0; }

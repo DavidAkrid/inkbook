@@ -2,7 +2,9 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const { rateLimit } = require('express-rate-limit');
+const supabase = require('./services/supabase');
 
 const artistRoutes = require('./routes/artist');
 const bookingRoutes = require('./routes/booking');
@@ -51,8 +53,36 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'artist.html'));
 });
 
-app.get('/book/:token', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'book.html'));
+// The booking page is sent with the artist's theme already on <html>, so clients
+// never see the default look flash first. Any failure falls back to the plain page
+// (book.html still applies the theme itself once its data loads).
+const BOOK_PAGE = path.join(__dirname, 'public', 'book.html');
+let bookHtmlCache = null;
+const THEME_IDS = ['sunset', 'forest', 'deep-sea', 'rose', 'ink', 'terminal-green']; // keep in sync with public/theme.js
+const FONT_IDS  = ['mono', 'serif', 'gothic'];
+
+app.get('/book/:token', async (req, res) => {
+  try {
+    if (!bookHtmlCache) bookHtmlCache = fs.readFileSync(BOOK_PAGE, 'utf8');
+
+    const { data } = await supabase
+      .from('booking_requests')
+      .select('artists(theme, scanlines, glow, heading_font)')
+      .eq('token', req.params.token)
+      .single();
+    const a = data?.artists;
+
+    // Only whitelisted values are written into the HTML
+    let attrs = '';
+    if (a && THEME_IDS.includes(a.theme)) attrs += ` data-theme="${a.theme}"`;
+    if (a && FONT_IDS.includes(a.heading_font)) attrs += ` data-font="${a.heading_font}"`;
+    if (a?.scanlines) attrs += ' data-scanlines';
+    if (a?.glow) attrs += ' data-glow';
+
+    res.type('html').send(bookHtmlCache.replace('<html lang="en" data-page="client">', `<html lang="en" data-page="client"${attrs}>`));
+  } catch (err) {
+    res.sendFile(BOOK_PAGE);
+  }
 });
 
 // Only start the HTTP server when running directly (local dev).
