@@ -1,7 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const supabase = require('../services/supabase');
-const { getAvailableSlots, createCalendarEvent } = require('../services/google-calendar');
+const { getAvailableSlots, createCalendarEvent, isCalendarAuthError } = require('../services/google-calendar');
+
+// Shown to clients when the artist's Google Calendar connection has lapsed
+const CALENDAR_DOWN_MSG = "Online booking is temporarily unavailable for this artist. Please contact them directly to book, or try again later.";
 const { sendBookingConfirmation } = require('../services/email');
 const { resolveTimeBlocks } = require('../services/time-blocks');
 
@@ -31,7 +34,7 @@ router.get('/:token', async (req, res) => {
 
   const { data: request, error } = await supabase
     .from('booking_requests')
-    .select('id, client_name, duration_hours, notes, status, expires_at, artists(name, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print, booking_days_ahead, theme, scanlines, glow, heading_font)')
+    .select('id, client_name, duration_hours, notes, status, expires_at, artists(name, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print, booking_days_ahead, theme, scanlines, glow, heading_font, header_plain, header_accent)')
     .eq('token', token)
     .single();
 
@@ -44,6 +47,8 @@ router.get('/:token', async (req, res) => {
     scanlines:    artist?.scanlines    ?? false,
     glow:         artist?.glow         ?? false,
     heading_font: artist?.heading_font ?? 'default',
+    header_plain:  artist?.header_plain  || '',
+    header_accent: artist?.header_accent || '',
   };
 
   // If already booked, include appointment time and deposit info for revisit
@@ -127,6 +132,9 @@ router.get('/:token/availability', async (req, res) => {
       time_blocks: !!resolveTimeBlocks(request, artist),
     });
   } catch (err) {
+    if (isCalendarAuthError(err)) {
+      return res.status(503).json({ error: CALENDAR_DOWN_MSG });
+    }
     console.error('Calendar availability error:', err.message);
     res.status(500).json({ error: 'Failed to fetch calendar availability.' });
   }
@@ -171,6 +179,7 @@ router.post('/:token', async (req, res) => {
     }
   } catch (err) {
     console.error('Availability re-check failed:', err.message);
+    if (isCalendarAuthError(err)) return res.status(503).json({ error: CALENDAR_DOWN_MSG });
     return res.status(500).json({ error: 'Could not verify availability. Please try again.' });
   }
   const artistTokens = {

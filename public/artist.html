@@ -24,16 +24,17 @@
       </div>
     </div>
 
-    <!-- Calendar connect banner (shown when calendar not connected) -->
-    <div id="calendarBanner" style="display:none;" class="info-box" style="margin-bottom: 24px;">
+    <!-- Calendar banner: never connected, or Google revoked access. The whole bar reconnects. -->
+    <div id="calendarBanner" class="info-box calendar-banner" style="display:none;" role="button" tabindex="0"
+      onclick="connectCalendar()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();connectCalendar();}">
       <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
         <div>
           <div class="info-box-label">Action Required</div>
-          <div style="font-size: 14px; margin-top: 2px;">Connect your Google Calendar to start generating booking links.</div>
+          <div id="calendarBannerText" style="font-size: 14px; margin-top: 2px;">Connect your Google Calendar to start generating booking links.</div>
         </div>
-        <button onclick="connectCalendar()" class="btn btn-primary" style="white-space: nowrap; flex-shrink: 0;">
+        <span id="calendarBannerBtn" class="btn btn-primary" style="white-space: nowrap; flex-shrink: 0;">
           Connect Google Calendar
-        </button>
+        </span>
       </div>
     </div>
 
@@ -273,6 +274,21 @@
           </p>
 
           <div class="form-group">
+            <label>Client Page Header</label>
+            <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 10px;">
+              Replaces "InkBook" at the top of your booking page. Fill in either part or both (end the plain part with a space to separate the words);
+              leave both blank to keep InkBook.
+            </p>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="settingsHeaderPlain" maxlength="30" placeholder="Plain part (e.g. Moss + space)"
+                style="flex: 1; min-width: 0;" oninput="previewHeader()">
+              <input type="text" id="settingsHeaderAccent" maxlength="30" placeholder="Colored part (e.g. Maiden)"
+                style="flex: 1; min-width: 0;" oninput="previewHeader()">
+            </div>
+            <div class="header-preview logo" id="headerPreview" aria-label="Header preview"></div>
+          </div>
+
+          <div class="form-group">
             <label>Theme</label>
             <div class="choice-grid" id="themeChoices">
               <label class="choice-option"><input type="radio" name="theme" value="classic" onchange="previewAppearance()">
@@ -420,16 +436,29 @@
         if (!res.ok) return;
         const profile = await res.json();
 
-        const banner = document.getElementById('calendarBanner');
         if (!profile.calendar_connected) {
-          banner.style.display = 'block';
+          showCalendarBanner('connect');
         } else {
-          banner.style.display = 'none';
-          loadCalendar();
+          hideCalendarBanner();
+          loadCalendar(); // shows the reconnect banner if Google has revoked access
         }
       } catch (err) {
         console.warn('Profile load failed:', err.message);
       }
+    }
+
+    function showCalendarBanner(kind) {
+      const reconnect = kind === 'reconnect';
+      document.getElementById('calendarBannerText').textContent = reconnect
+        ? "Your Google Calendar disconnected, so clients can't see your availability or book. Tap to reconnect."
+        : 'Connect your Google Calendar to start generating booking links.';
+      document.getElementById('calendarBannerBtn').textContent =
+        reconnect ? 'Reconnect Google Calendar' : 'Connect Google Calendar';
+      document.getElementById('calendarBanner').style.display = 'block';
+    }
+
+    function hideCalendarBanner() {
+      document.getElementById('calendarBanner').style.display = 'none';
     }
 
     function connectCalendar() {
@@ -817,7 +846,7 @@
       const m = msg.toLowerCase();
       if (m.includes('time block')) return 'blocks';
       if (m.includes('deposit')) return 'deposit';
-      if (m.includes('theme') || m.includes('font')) return 'appearance';
+      if (m.includes('theme') || m.includes('font') || m.includes('header')) return 'appearance';
       if (m.includes('work_') || m.includes('buffer') || m.includes('booking_days') || m.includes('days_off')) return 'schedule';
       return document.querySelector('.settings-tab.active')?.dataset.tab || 'schedule';
     }
@@ -828,10 +857,12 @@
 
     function pickAppearance(s) {
       return {
-        theme:        s.theme        || 'classic',
-        scanlines:    !!s.scanlines,
-        glow:         !!s.glow,
-        heading_font: s.heading_font || 'default',
+        theme:         s.theme        || 'classic',
+        scanlines:     !!s.scanlines,
+        glow:          !!s.glow,
+        heading_font:  s.heading_font || 'default',
+        header_plain:  s.header_plain  || '',
+        header_accent: s.header_accent || '',
       };
     }
 
@@ -840,15 +871,37 @@
       document.querySelectorAll('input[name=heading_font]').forEach(r => { r.checked = r.value === a.heading_font; });
       document.getElementById('settingsScanlines').checked = a.scanlines;
       document.getElementById('settingsGlow').checked = a.glow;
+      document.getElementById('settingsHeaderPlain').value  = a.header_plain;
+      document.getElementById('settingsHeaderAccent').value = a.header_accent;
+      previewHeader();
     }
 
     function getAppearanceForm() {
       return {
-        theme:        document.querySelector('input[name=theme]:checked')?.value || 'classic',
-        heading_font: document.querySelector('input[name=heading_font]:checked')?.value || 'default',
-        scanlines:    document.getElementById('settingsScanlines').checked,
-        glow:         document.getElementById('settingsGlow').checked,
+        theme:         document.querySelector('input[name=theme]:checked')?.value || 'classic',
+        heading_font:  document.querySelector('input[name=heading_font]:checked')?.value || 'default',
+        scanlines:     document.getElementById('settingsScanlines').checked,
+        glow:          document.getElementById('settingsGlow').checked,
+        // Keep a space at the end of the plain part / start of the colored part — it separates the words
+        header_plain:  document.getElementById('settingsHeaderPlain').value.trimStart(),
+        header_accent: document.getElementById('settingsHeaderAccent').value.trimEnd(),
       };
+    }
+
+    // Shows the client page header as it will look (blank both = InkBook)
+    function previewHeader() {
+      const plain  = document.getElementById('settingsHeaderPlain').value.trimStart();
+      const accent = document.getElementById('settingsHeaderAccent').value.trimEnd();
+      const el = document.getElementById('headerPreview');
+      const custom = plain.trim() || accent.trim();
+      const usePlain  = custom ? plain  : 'Ink';
+      const useAccent = custom ? accent : 'Book';
+      el.textContent = usePlain;
+      if (useAccent) {
+        const span = document.createElement('span');
+        span.textContent = useAccent;
+        el.appendChild(span);
+      }
     }
 
     // Live preview while picking; closeSettings() puts the saved look back if not saved
@@ -910,6 +963,8 @@
         const res = await fetch('/api/requests/availability', { headers: authHeaders() });
         if (!res.ok) {
           document.getElementById('calendarSection').style.display = 'none';
+          const err = await res.json().catch(() => ({}));
+          if (err.code === 'calendar_disconnected') showCalendarBanner('reconnect');
           return;
         }
         const data = await res.json();

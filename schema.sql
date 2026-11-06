@@ -78,6 +78,9 @@ ALTER TABLE artists ADD COLUMN IF NOT EXISTS theme        TEXT    NOT NULL DEFAU
 ALTER TABLE artists ADD COLUMN IF NOT EXISTS scanlines    BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE artists ADD COLUMN IF NOT EXISTS glow         BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE artists ADD COLUMN IF NOT EXISTS heading_font TEXT    NOT NULL DEFAULT 'default'; -- default | mono | serif | gothic
+-- Client booking page header, replacing "InkBook": plain part + accent-colored part (either may be NULL)
+ALTER TABLE artists ADD COLUMN IF NOT EXISTS header_plain  TEXT;
+ALTER TABLE artists ADD COLUMN IF NOT EXISTS header_accent TEXT;
 
 -- ============================================================
 -- Indexes

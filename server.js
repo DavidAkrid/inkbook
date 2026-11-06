@@ -61,13 +61,21 @@ let bookHtmlCache = null;
 const THEME_IDS = ['sunset', 'forest', 'deep-sea', 'rose', 'ink', 'terminal-green']; // keep in sync with public/theme.js
 const FONT_IDS  = ['mono', 'serif', 'gothic'];
 
+// Must match the logo line in public/book.html exactly
+const BOOK_LOGO_DEFAULT = '<div class="logo booking-logo" id="bookingLogo">Ink<span style="color: var(--accent);">Book</span></div>';
+const escHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function bookLogoHtml(plain, accent) {
+  return `<div class="logo booking-logo" id="bookingLogo">${escHtml(plain || '')}` +
+    (accent ? `<span style="color: var(--accent);">${escHtml(accent)}</span>` : '') + '</div>';
+}
+
 app.get('/book/:token', async (req, res) => {
   try {
     if (!bookHtmlCache) bookHtmlCache = fs.readFileSync(BOOK_PAGE, 'utf8');
 
     const { data } = await supabase
       .from('booking_requests')
-      .select('artists(theme, scanlines, glow, heading_font)')
+      .select('artists(theme, scanlines, glow, heading_font, header_plain, header_accent)')
       .eq('token', req.params.token)
       .single();
     const a = data?.artists;
@@ -79,7 +87,13 @@ app.get('/book/:token', async (req, res) => {
     if (a?.scanlines) attrs += ' data-scanlines';
     if (a?.glow) attrs += ' data-glow';
 
-    res.type('html').send(bookHtmlCache.replace('<html lang="en" data-page="client">', `<html lang="en" data-page="client"${attrs}>`));
+    let html = bookHtmlCache.replace('<html lang="en" data-page="client">', `<html lang="en" data-page="client"${attrs}>`);
+    // The artist's own header text (escaped — it's artist-entered)
+    if (a && (a.header_plain || a.header_accent)) {
+      // Function replacer so "$&"-style text in a name is inserted literally
+      html = html.replace(BOOK_LOGO_DEFAULT, () => bookLogoHtml(a.header_plain, a.header_accent));
+    }
+    res.type('html').send(html);
   } catch (err) {
     res.sendFile(BOOK_PAGE);
   }
