@@ -31,7 +31,7 @@ router.get('/:token', async (req, res) => {
 
   const { data: request, error } = await supabase
     .from('booking_requests')
-    .select('id, client_name, duration_hours, notes, status, expires_at, artists(name, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print, booking_days_ahead)')
+    .select('id, client_name, duration_hours, notes, status, expires_at, artists(name, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print, booking_days_ahead, theme, scanlines, glow, heading_font)')
     .eq('token', token)
     .single();
 
@@ -39,6 +39,12 @@ router.get('/:token', async (req, res) => {
 
   const now = new Date();
   const artist = request.artists;
+  const appearance = {
+    theme:        artist?.theme        ?? 'classic',
+    scanlines:    artist?.scanlines    ?? false,
+    glow:         artist?.glow         ?? false,
+    heading_font: artist?.heading_font ?? 'default',
+  };
 
   // If already booked, include appointment time and deposit info for revisit
   if (request.status === 'booked') {
@@ -68,6 +74,7 @@ router.get('/:token', async (req, res) => {
       start_time:     booking?.start_time,
       end_time:       booking?.end_time,
       deposit,
+      appearance,
     });
   }
 
@@ -84,6 +91,7 @@ router.get('/:token', async (req, res) => {
     expires_at:         request.expires_at,
     artist_name:        artist?.display_name || artist?.name || null,
     booking_days_ahead: artist?.booking_days_ahead ?? 30,
+    appearance,
   });
 });
 

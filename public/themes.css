@@ -1,0 +1,126 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   Appearance — chosen per artist in Settings → Appearance. Loaded after styles.css.
+   theme.js sets these on <html>:
+     data-theme      terminal-green | terminal-amber | terminal-purple | sunset  (none = Classic)
+     data-scanlines  present = CRT scan lines over the page
+     data-glow       present = soft glow on buttons, headings and selected times
+     data-font       mono | serif | gothic  (headings only; none = Default)
+     data-page       client  (the client booking page — scan lines are lighter there)
+   CSS only: no layout changes, and overlays never take clicks.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Themes ── */
+:root[data-theme="terminal-green"] {
+  --bg: #030504; --surface: #090d0a; --surface2: #0f1511; --border: #24362a;
+  --text: #d2f2d9; --text-muted: #6d8c74;
+  --accent: #00ff41; --accent-hover: #5cff85; --accent-rgb: 0, 255, 65; --on-accent: #001a07;
+  /* Success takes cyan here, otherwise "booked" would look the same as "pending" */
+  --success: #3ee6e0; --success-rgb: 62, 230, 224; --success-text: #9ff3ef;
+  --danger: #ff3b3b; --danger-rgb: 255, 59, 59; --danger-text: #ff8a8a;
+}
+:root[data-theme="terminal-amber"] {
+  --bg: #050403; --surface: #0d0b08; --surface2: #15110b; --border: #3a2f1e;
+  --text: #f5e3c2; --text-muted: #94805e;
+  --accent: #ffb000; --accent-hover: #ffc640; --accent-rgb: 255, 176, 0; --on-accent: #1a1000;
+  --success: #5cd6a8; --success-rgb: 92, 214, 168; --success-text: #a3ebd0;
+  --danger: #ff3b3b; --danger-rgb: 255, 59, 59; --danger-text: #ff8a8a;
+}
+:root[data-theme="terminal-purple"] {
+  --bg: #050307; --surface: #0b080e; --surface2: #120e17; --border: #31253d;
+  --text: #e6d9f5; --text-muted: #85759a;
+  --accent: #b45cff; --accent-hover: #c886ff; --accent-rgb: 180, 92, 255; --on-accent: #12001f;
+  --success: #5cd6a8; --success-rgb: 92, 214, 168; --success-text: #a3ebd0;
+  --danger: #ff4d6a; --danger-rgb: 255, 77, 106; --danger-text: #ff9aab;
+}
+:root[data-theme="sunset"] {
+  --bg: #0c0709; --surface: #150e12; --surface2: #1e141a; --border: #33232b;
+  --text: #f6e6dc; --text-muted: #a2847a;
+  --accent: #ff6b4a; --accent-hover: #ff8a6e; --accent-rgb: 255, 107, 74; --on-accent: #2a1014;
+  --success: #ffb347; --success-rgb: 255, 179, 71; --success-text: #ffd08a;
+  --danger: #e2689e; --danger-rgb: 226, 104, 158; --danger-text: #f2a3c6;
+}
+:root[data-theme="sunset"] .btn-primary { background: linear-gradient(90deg, #ffb347, #ff6b4a 55%, #b83b6e); }
+:root[data-theme="sunset"] .btn-primary:hover:not(:disabled) { filter: brightness(1.1); }
+
+/* ── Scan lines ── */
+:root[data-scanlines] body::after {
+  content: ""; position: fixed; inset: 0; z-index: 2000; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, transparent 0, transparent 2px, rgba(0, 0, 0, 0.28) 3px, transparent 4px);
+}
+/* Clients read times and dates here, so the lines are fainter */
+:root[data-scanlines][data-page="client"] body::after {
+  background: repeating-linear-gradient(to bottom, transparent 0, transparent 2px, rgba(0, 0, 0, 0.14) 3px, transparent 4px);
+}
+/* Phone pixels are smaller, so the lines sit a little further apart */
+@media (max-width: 480px) {
+  :root[data-scanlines] body::after {
+    background: repeating-linear-gradient(to bottom, transparent 0, transparent 3px, rgba(0, 0, 0, 0.24) 4.5px, transparent 6px);
+  }
+  :root[data-scanlines][data-page="client"] body::after {
+    background: repeating-linear-gradient(to bottom, transparent 0, transparent 3px, rgba(0, 0, 0, 0.12) 4.5px, transparent 6px);
+  }
+}
+
+/* ── Glow ── */
+:root[data-glow] .btn-primary { box-shadow: 0 0 14px rgba(var(--accent-rgb), 0.45); }
+:root[data-glow] .btn-primary:hover:not(:disabled) { box-shadow: 0 0 22px rgba(var(--accent-rgb), 0.7); }
+:root[data-glow] :is(h1, .logo span) { text-shadow: 0 0 12px rgba(var(--accent-rgb), 0.35); }
+:root[data-glow] .slot-btn.selected { box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.55); }
+:root[data-glow] .slot-btn:not(:disabled):hover { box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.3); }
+:root[data-glow] :is(input, select, textarea):focus { box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.3); }
+:root[data-glow] .toggle-switch input:checked + .toggle-slider { box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.5); }
+:root[data-glow] .day-checkbox:has(input:checked) { box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4); }
+:root[data-glow] .week-day-header.is-today { box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.25); }
+:root[data-glow] .badge-pending { text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.5); }
+:root[data-glow] .badge-booked { text-shadow: 0 0 8px rgba(var(--success-rgb), 0.5); }
+:root[data-glow] .settings-tab.active { text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.5); }
+
+/* ── Heading fonts (self-hosted, SIL Open Font License). If one fails to load, the fallback applies. ── */
+@font-face { font-family: 'Inkbook Mono';   src: url('/fonts/plex-mono-600.woff2') format('woff2'); font-weight: 600; font-display: swap; }
+@font-face { font-family: 'Inkbook Serif';  src: url('/fonts/playfair-700.woff2')  format('woff2'); font-weight: 700; font-display: swap; }
+@font-face { font-family: 'Inkbook Gothic'; src: url('/fonts/pirata-one.woff2')    format('woff2'); font-weight: 400; font-display: swap; }
+
+:root[data-font="mono"]   { --heading-font: 'Inkbook Mono', ui-monospace, Consolas, monospace; }
+:root[data-font="serif"]  { --heading-font: 'Inkbook Serif', Georgia, 'Times New Roman', serif; }
+:root[data-font="gothic"] { --heading-font: 'Inkbook Gothic', Georgia, serif; }
+
+h1, h2, .logo, .modal-title { font-family: var(--heading-font); }
+:root[data-font="mono"]   :is(h1, h2, .logo, .modal-title) { font-weight: 600; letter-spacing: -0.5px; }
+:root[data-font="gothic"] :is(h1, h2, .logo, .modal-title) { font-weight: 400; letter-spacing: 0.5px; }
+:root[data-font="gothic"] h1 { font-size: 28px; }
+:root[data-font="gothic"] h2 { font-size: 20px; }
+
+/* ── Settings tabs ── */
+/* The modal is a flex item: without min-width 0 the unwrapped tab row would stretch it past a phone's edge */
+.modal { min-width: 0; }
+.settings-tabs {
+  display: flex; gap: 2px; padding: 0 16px; border-bottom: 1px solid var(--border);
+  overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; flex-shrink: 0;
+}
+.settings-tabs::-webkit-scrollbar { display: none; }
+.settings-tab {
+  background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  color: var(--text-muted); cursor: pointer; font-size: 13px; font-weight: 600;
+  padding: 12px 10px; white-space: nowrap; transition: color 0.15s, border-color 0.15s;
+}
+.settings-tab:hover { color: var(--text); }
+.settings-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.settings-panel { display: none; }
+.settings-panel.active { display: block; }
+@media (max-width: 480px) {
+  .settings-tabs { padding: 0 8px; }
+  .settings-tab { padding: 12px 7px; font-size: 12px; }
+}
+
+/* ── Theme and font pickers in Settings → Appearance ── */
+.choice-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+.choice-option {
+  display: flex; flex-direction: column; gap: 6px; padding: 10px; cursor: pointer;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+  font-size: 12px; font-weight: 600; color: var(--text); text-transform: none; letter-spacing: 0;
+}
+.choice-option input { display: none; }
+.choice-option:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.theme-swatch { display: flex; height: 22px; border-radius: 4px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.08); }
+.theme-swatch span { flex: 1; }
+.font-sample { font-size: 18px; line-height: 1.2; font-weight: 400; }

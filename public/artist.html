@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>InkBook — Dashboard</title>
   <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/themes.css">
+  <script src="/theme.js"></script>
+  <script>InkbookTheme.applyCachedAppearance();</script>
 </head>
 <body>
   <div class="container">
@@ -139,130 +142,206 @@
   <div id="settingsOverlay" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeSettings()">
     <div class="modal">
       <div class="modal-header">
-        <span style="font-size: 16px; font-weight: 700;">Scheduling Settings</span>
+        <span class="modal-title" style="font-size: 16px; font-weight: 700;">Settings</span>
         <button onclick="closeSettings()" class="btn btn-secondary" style="padding: 4px 10px; font-size: 18px; line-height: 1;">&times;</button>
       </div>
+      <div class="settings-tabs" role="tablist">
+        <button type="button" class="settings-tab active" data-tab="schedule" onclick="showSettingsTab('schedule')">Schedule</button>
+        <button type="button" class="settings-tab" data-tab="blocks" onclick="showSettingsTab('blocks')">Blocks</button>
+        <button type="button" class="settings-tab" data-tab="deposit" onclick="showSettingsTab('deposit')">Deposit</button>
+        <button type="button" class="settings-tab" data-tab="appearance" onclick="showSettingsTab('appearance')">Appearance</button>
+        <button type="button" class="settings-tab" data-tab="account" onclick="showSettingsTab('account')">Account</button>
+      </div>
       <div class="modal-body">
-        <div class="form-group">
-          <label>Display Name</label>
-          <input type="text" id="settingsDisplayName" placeholder="e.g. Kat Von D (leave blank to use account name)">
-        </div>
 
-        <div class="form-group">
-          <label>Working Hours</label>
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <select id="settingsStart" style="flex: 1;"></select>
-            <span style="color: var(--text-muted); font-size: 13px;">to</span>
-            <select id="settingsEnd" style="flex: 1;"></select>
+        <!-- ── Schedule ── -->
+        <div class="settings-panel active" data-panel="schedule">
+          <div class="form-group">
+            <label>Working Hours</label>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <select id="settingsStart" style="flex: 1;"></select>
+              <span style="color: var(--text-muted); font-size: 13px;">to</span>
+              <select id="settingsEnd" style="flex: 1;"></select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Days Off</label>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+              <label class="day-checkbox"><input type="checkbox" value="0"> Sun</label>
+              <label class="day-checkbox"><input type="checkbox" value="1"> Mon</label>
+              <label class="day-checkbox"><input type="checkbox" value="2"> Tue</label>
+              <label class="day-checkbox"><input type="checkbox" value="3"> Wed</label>
+              <label class="day-checkbox"><input type="checkbox" value="4"> Thu</label>
+              <label class="day-checkbox"><input type="checkbox" value="5"> Fri</label>
+              <label class="day-checkbox"><input type="checkbox" value="6"> Sat</label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>How Far Ahead Clients Can Book</label>
+            <select id="settingsDaysAhead">
+              <option value="14">2 weeks</option>
+              <option value="30">1 month</option>
+              <option value="60">2 months</option>
+              <option value="90">3 months</option>
+              <option value="180">6 months</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0;">
+            <label>Buffer Between Appointments</label>
+            <select id="settingsBuffer">
+              <option value="0">No buffer</option>
+              <option value="15">15 minutes</option>
+              <option value="30">30 minutes</option>
+              <option value="45">45 minutes</option>
+              <option value="60">60 minutes</option>
+            </select>
           </div>
         </div>
 
-        <div class="form-group">
-          <label>Days Off</label>
-          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-            <label class="day-checkbox"><input type="checkbox" value="0"> Sun</label>
-            <label class="day-checkbox"><input type="checkbox" value="1"> Mon</label>
-            <label class="day-checkbox"><input type="checkbox" value="2"> Tue</label>
-            <label class="day-checkbox"><input type="checkbox" value="3"> Wed</label>
-            <label class="day-checkbox"><input type="checkbox" value="4"> Thu</label>
-            <label class="day-checkbox"><input type="checkbox" value="5"> Fri</label>
-            <label class="day-checkbox"><input type="checkbox" value="6"> Sat</label>
+        <!-- ── Time Blocks ── -->
+        <div class="settings-panel" data-panel="blocks">
+          <div class="form-group">
+            <label>Time Blocks</label>
+            <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 10px;">
+              Clients pick from these sessions instead of any open time, so odd start times
+              don't break up your day. Same blocks every working day.
+            </p>
+            <select id="settingsBlocksMode" onchange="toggleBlockSettings()">
+              <option value="off">Off</option>
+              <option value="default_on">On by default (can untick per link)</option>
+              <option value="optional">Optional (tick per link)</option>
+            </select>
+          </div>
+
+          <div id="blockSettings" style="transition: opacity 0.15s;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <div id="blocksList" style="display: flex; flex-direction: column; gap: 8px;"></div>
+              <button type="button" onclick="addBlockRow()" class="btn btn-secondary"
+                style="margin-top: 10px; font-size: 13px; padding: 6px 14px;">+ Add Block</button>
+            </div>
           </div>
         </div>
 
-        <div class="form-group">
-          <label>How Far Ahead Clients Can Book</label>
-          <select id="settingsDaysAhead">
-            <option value="14">2 weeks</option>
-            <option value="30">1 month</option>
-            <option value="60">2 months</option>
-            <option value="90">3 months</option>
-            <option value="180">6 months</option>
-          </select>
+        <!-- ── Deposit ── -->
+        <div class="settings-panel" data-panel="deposit">
+          <div class="form-group">
+            <label class="toggle-row" for="settingsDepositEnabled">
+              <span>Require Deposit</span>
+              <div class="toggle-switch">
+                <input type="checkbox" id="settingsDepositEnabled" onchange="toggleDepositSettings()">
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+          </div>
+
+          <div id="depositSettings" style="transition: opacity 0.15s;">
+            <div class="form-group">
+              <label>Deposit Amount</label>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="color: var(--text-muted); font-size: 18px; font-weight: 300;">$</span>
+                <input type="number" id="settingsDepositAmount" min="0" step="0.01" placeholder="e.g. 50" style="flex: 1;">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Message to Client <span style="font-weight:400; text-transform:none; letter-spacing:0; color:var(--text-muted); font-size:11px;">(optional)</span></label>
+              <textarea id="settingsDepositDescription" rows="2" placeholder="e.g. Please send your deposit within 24 hours. Supports *italic* and **bold**."></textarea>
+            </div>
+
+            <div class="form-group">
+              <label>Fine Print <span style="font-weight:400; text-transform:none; letter-spacing:0; color:var(--text-muted); font-size:11px;">(optional)</span></label>
+              <textarea id="settingsDepositFinePrint" rows="2" placeholder="e.g. Non-refundable. Applies toward your session total. Supports *italic* and **bold**."></textarea>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0;">
+              <label>Payment Links</label>
+              <div id="depositLinksList" style="display: flex; flex-direction: column; gap: 8px;"></div>
+              <button type="button" onclick="addDepositLink()" class="btn btn-secondary"
+                style="margin-top: 10px; font-size: 13px; padding: 6px 14px;">+ Add Link</button>
+            </div>
+          </div>
         </div>
 
-        <div class="form-group">
-          <label>Buffer Between Appointments</label>
-          <select id="settingsBuffer">
-            <option value="0">No buffer</option>
-            <option value="15">15 minutes</option>
-            <option value="30">30 minutes</option>
-            <option value="45">45 minutes</option>
-            <option value="60">60 minutes</option>
-          </select>
-        </div>
-
-        <div style="border-top: 1px solid var(--border); margin: 4px 0 20px;"></div>
-
-        <div class="form-group">
-          <label>Time Blocks</label>
-          <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 10px;">
-            Clients pick from these sessions instead of any open time, so odd start times
-            don't break up your day. Same blocks every working day.
+        <!-- ── Appearance ── -->
+        <div class="settings-panel" data-panel="appearance">
+          <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 16px;">
+            Your dashboard and your clients' booking pages use this look.
+            Changes preview here right away; Save to keep them.
           </p>
-          <select id="settingsBlocksMode" onchange="toggleBlockSettings()">
-            <option value="off">Off</option>
-            <option value="default_on">On by default (can untick per link)</option>
-            <option value="optional">Optional (tick per link)</option>
-          </select>
-        </div>
 
-        <div id="blockSettings" style="transition: opacity 0.15s;">
-          <div class="form-group" style="margin-bottom: 0;">
-            <div id="blocksList" style="display: flex; flex-direction: column; gap: 8px;"></div>
-            <button type="button" onclick="addBlockRow()" class="btn btn-secondary"
-              style="margin-top: 10px; font-size: 13px; padding: 6px 14px;">+ Add Block</button>
-          </div>
-        </div>
-
-        <div style="border-top: 1px solid var(--border); margin: 20px 0 20px;"></div>
-
-        <div class="form-group">
-          <label class="toggle-row" for="settingsDepositEnabled">
-            <span>Require Deposit</span>
-            <div class="toggle-switch">
-              <input type="checkbox" id="settingsDepositEnabled" onchange="toggleDepositSettings()">
-              <span class="toggle-slider"></span>
-            </div>
-          </label>
-        </div>
-
-        <div id="depositSettings" style="transition: opacity 0.15s;">
           <div class="form-group">
-            <label>Deposit Amount</label>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="color: var(--text-muted); font-size: 18px; font-weight: 300;">$</span>
-              <input type="number" id="settingsDepositAmount" min="0" step="0.01" placeholder="e.g. 50" style="flex: 1;">
+            <label>Theme</label>
+            <div class="choice-grid" id="themeChoices">
+              <label class="choice-option"><input type="radio" name="theme" value="classic" onchange="previewAppearance()">
+                <div class="theme-swatch"><span style="background:#0f0f0f"></span><span style="background:#242424"></span><span style="background:#9b7fd4"></span><span style="background:#52a852"></span></div>Classic</label>
+              <label class="choice-option"><input type="radio" name="theme" value="terminal-green" onchange="previewAppearance()">
+                <div class="theme-swatch"><span style="background:#030504"></span><span style="background:#0f1511"></span><span style="background:#00ff41"></span><span style="background:#3ee6e0"></span></div>Terminal Green</label>
+              <label class="choice-option"><input type="radio" name="theme" value="terminal-amber" onchange="previewAppearance()">
+                <div class="theme-swatch"><span style="background:#050403"></span><span style="background:#15110b"></span><span style="background:#ffb000"></span><span style="background:#5cd6a8"></span></div>Terminal Amber</label>
+              <label class="choice-option"><input type="radio" name="theme" value="terminal-purple" onchange="previewAppearance()">
+                <div class="theme-swatch"><span style="background:#050307"></span><span style="background:#120e17"></span><span style="background:#b45cff"></span><span style="background:#5cd6a8"></span></div>Terminal Purple</label>
+              <label class="choice-option"><input type="radio" name="theme" value="sunset" onchange="previewAppearance()">
+                <div class="theme-swatch"><span style="background:#0c0709"></span><span style="background:#1e141a"></span><span style="background:linear-gradient(90deg,#ffb347,#ff6b4a,#b83b6e)"></span><span style="background:#ffb347"></span></div>Sunset</label>
             </div>
           </div>
 
           <div class="form-group">
-            <label>Message to Client <span style="font-weight:400; text-transform:none; letter-spacing:0; color:var(--text-muted); font-size:11px;">(optional)</span></label>
-            <textarea id="settingsDepositDescription" rows="2" placeholder="e.g. Please send your deposit within 24 hours. Supports *italic* and **bold**."></textarea>
+            <label class="toggle-row" for="settingsScanlines">
+              <span>Scan Lines</span>
+              <div class="toggle-switch">
+                <input type="checkbox" id="settingsScanlines" onchange="previewAppearance()">
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
           </div>
 
           <div class="form-group">
-            <label>Fine Print <span style="font-weight:400; text-transform:none; letter-spacing:0; color:var(--text-muted); font-size:11px;">(optional)</span></label>
-            <textarea id="settingsDepositFinePrint" rows="2" placeholder="e.g. Non-refundable. Applies toward your session total. Supports *italic* and **bold**."></textarea>
+            <label class="toggle-row" for="settingsGlow">
+              <span>Glow</span>
+              <div class="toggle-switch">
+                <input type="checkbox" id="settingsGlow" onchange="previewAppearance()">
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
           </div>
 
           <div class="form-group" style="margin-bottom: 0;">
-            <label>Payment Links</label>
-            <div id="depositLinksList" style="display: flex; flex-direction: column; gap: 8px;"></div>
-            <button type="button" onclick="addDepositLink()" class="btn btn-secondary"
-              style="margin-top: 10px; font-size: 13px; padding: 6px 14px;">+ Add Link</button>
+            <label>Heading Font</label>
+            <div class="choice-grid" id="fontChoices">
+              <label class="choice-option"><input type="radio" name="heading_font" value="default" onchange="previewAppearance()">
+                <span class="font-sample" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-weight: 700;">InkBook</span>Default</label>
+              <label class="choice-option"><input type="radio" name="heading_font" value="mono" onchange="previewAppearance()">
+                <span class="font-sample" style="font-family: 'Inkbook Mono', ui-monospace, monospace; font-weight: 600;">InkBook</span>Mono</label>
+              <label class="choice-option"><input type="radio" name="heading_font" value="serif" onchange="previewAppearance()">
+                <span class="font-sample" style="font-family: 'Inkbook Serif', Georgia, serif; font-weight: 700;">InkBook</span>Serif</label>
+              <label class="choice-option"><input type="radio" name="heading_font" value="gothic" onchange="previewAppearance()">
+                <span class="font-sample" style="font-family: 'Inkbook Gothic', Georgia, serif; font-size: 22px;">InkBook</span>Gothic</label>
+            </div>
           </div>
         </div>
 
-        <div style="border-top: 1px solid var(--border); margin: 20px 0 20px;"></div>
+        <!-- ── Account ── -->
+        <div class="settings-panel" data-panel="account">
+          <div class="form-group">
+            <label>Display Name</label>
+            <input type="text" id="settingsDisplayName" placeholder="e.g. Kat Von D (leave blank to use account name)">
+          </div>
 
-        <div style="text-align: center;">
-          <button type="button" onclick="connectCalendar()" class="btn btn-danger"
-            style="font-size: 13px; padding: 6px 14px;">Reconnect Google Calendar</button>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label>Google Calendar</label>
+            <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 10px;">
+              If your availability stops loading, reconnect to refresh Inkbook's access to your calendar.
+            </p>
+            <button type="button" onclick="connectCalendar()" class="btn btn-danger"
+              style="font-size: 13px; padding: 6px 14px;">Reconnect Google Calendar</button>
+          </div>
         </div>
 
       </div>
-      <div id="settingsAlert" style="display:none; margin: 0 24px 12px; font-size: 13px; padding: 10px 14px; border-radius: 6px; background: rgba(224,82,82,0.1); border: 1px solid rgba(224,82,82,0.3); color: #ff9999;"></div>
+      <div id="settingsAlert" style="display:none; margin: 0 24px 12px; font-size: 13px; padding: 10px 14px; border-radius: 6px; background: rgba(var(--danger-rgb),0.1); border: 1px solid rgba(var(--danger-rgb),0.3); color: var(--danger-text);"></div>
       <div class="modal-footer">
         <button onclick="closeSettings()" class="btn btn-secondary">Cancel</button>
         <button onclick="saveSettings()" class="btn btn-primary" id="saveSettingsBtn">Save</button>
@@ -320,6 +399,7 @@
     }
 
     async function signOut() {
+      InkbookTheme.cacheAppearance(null); // next person on this browser starts on the default look
       await supabaseClient.auth.signOut();
       window.location.href = '/login';
     }
@@ -544,11 +624,15 @@
           document.getElementById('blocksList').innerHTML = '';
           (s.time_blocks || []).forEach(b => addBlockRow(b.start_min, b.end_min));
           toggleBlockSettings();
+          // Appearance
+          savedAppearance = pickAppearance(s);
+          setAppearanceForm(savedAppearance);
         }
       } catch (err) {
         console.warn('Could not load settings:', err.message);
       }
 
+      showSettingsTab('schedule');
       document.getElementById('settingsOverlay').style.display = 'flex';
       document.body.style.overflow = 'hidden';
     }
@@ -599,6 +683,7 @@
         if (!depositAmount || depositAmount <= 0) {
           settingsAlert.textContent = 'Please enter a deposit amount.';
           settingsAlert.style.display = 'block';
+          showSettingsTab('deposit');
           btn.disabled = false; btn.textContent = 'Save';
           return;
         }
@@ -622,21 +707,27 @@
             deposit_fine_print:  document.getElementById('settingsDepositFinePrint').value.trim(),
             time_blocks_mode:    document.getElementById('settingsBlocksMode').value,
             time_blocks:         getBlockRows(),
+            ...getAppearanceForm(),
           }),
         });
         const data = await res.json();
         if (!res.ok) {
-          // Show inside the modal so it isn't hidden behind it
+          // Show inside the modal so it isn't hidden behind it, on the tab the problem is on
           settingsAlert.textContent = data.error || 'Failed to save settings.';
           settingsAlert.style.display = 'block';
+          showSettingsTab(tabForError(settingsAlert.textContent));
           return;
         }
         blockSettings = { mode: data.time_blocks_mode || 'off', blocks: data.time_blocks || [] };
         applyBlockToggleDefault();
+        savedAppearance = pickAppearance(data);
+        InkbookTheme.applyAppearance(savedAppearance);
+        InkbookTheme.cacheAppearance(savedAppearance);
         showToast('Settings saved.', 'success');
         closeSettings();
       } catch (err) {
-        showToast('Network error: ' + err.message, 'error');
+        settingsAlert.textContent = 'Network error: ' + err.message;
+        settingsAlert.style.display = 'block';
       } finally {
         btn.disabled = false;
         btn.textContent = 'Save';
@@ -654,8 +745,12 @@
         const s = await res.json();
         blockSettings = { mode: s.time_blocks_mode || 'off', blocks: s.time_blocks || [] };
         applyBlockToggleDefault();
+        // The saved look wins over the cached one (it may have changed on another device)
+        savedAppearance = pickAppearance(s);
+        InkbookTheme.applyAppearance(savedAppearance);
+        InkbookTheme.cacheAppearance(savedAppearance);
       } catch (err) {
-        console.warn('Could not load time block settings:', err.message);
+        console.warn('Could not load settings:', err.message);
       }
     }
 
@@ -705,7 +800,60 @@
       }));
     }
 
+    // ── Settings tabs ─────────────────────────────────────────────────────────
+
+    function showSettingsTab(name) {
+      document.querySelectorAll('.settings-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+      document.querySelectorAll('.settings-panel').forEach(p => p.classList.toggle('active', p.dataset.panel === name));
+      document.querySelector('#settingsOverlay .modal-body').scrollTop = 0;
+    }
+
+    // Which tab a server validation message belongs to
+    function tabForError(msg) {
+      const m = msg.toLowerCase();
+      if (m.includes('time block')) return 'blocks';
+      if (m.includes('deposit')) return 'deposit';
+      if (m.includes('theme') || m.includes('font')) return 'appearance';
+      if (m.includes('work_') || m.includes('buffer') || m.includes('booking_days') || m.includes('days_off')) return 'schedule';
+      return document.querySelector('.settings-tab.active')?.dataset.tab || 'schedule';
+    }
+
+    // ── Appearance ────────────────────────────────────────────────────────────
+
+    let savedAppearance = { theme: 'classic', scanlines: false, glow: false, heading_font: 'default' };
+
+    function pickAppearance(s) {
+      return {
+        theme:        s.theme        || 'classic',
+        scanlines:    !!s.scanlines,
+        glow:         !!s.glow,
+        heading_font: s.heading_font || 'default',
+      };
+    }
+
+    function setAppearanceForm(a) {
+      document.querySelectorAll('input[name=theme]').forEach(r => { r.checked = r.value === a.theme; });
+      document.querySelectorAll('input[name=heading_font]').forEach(r => { r.checked = r.value === a.heading_font; });
+      document.getElementById('settingsScanlines').checked = a.scanlines;
+      document.getElementById('settingsGlow').checked = a.glow;
+    }
+
+    function getAppearanceForm() {
+      return {
+        theme:        document.querySelector('input[name=theme]:checked')?.value || 'classic',
+        heading_font: document.querySelector('input[name=heading_font]:checked')?.value || 'default',
+        scanlines:    document.getElementById('settingsScanlines').checked,
+        glow:         document.getElementById('settingsGlow').checked,
+      };
+    }
+
+    // Live preview while picking; closeSettings() puts the saved look back if not saved
+    function previewAppearance() {
+      InkbookTheme.applyAppearance(getAppearanceForm());
+    }
+
     function closeSettings() {
+      InkbookTheme.applyAppearance(savedAppearance);
       document.getElementById('settingsOverlay').style.display = 'none';
       document.getElementById('settingsAlert').style.display = 'none';
       document.body.style.overflow = '';
