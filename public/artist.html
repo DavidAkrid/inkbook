@@ -901,8 +901,6 @@
     let calCurrentWeekStart = null;
     let calFirstWeekStart = null;
     let calLastWeekStart = null;
-    const CAL_SLOT_H   = 30;
-    const CAL_SLOT_GAP = 4;
 
     async function loadCalendar() {
       document.getElementById('calendarSection').style.display = 'block';
@@ -1002,40 +1000,50 @@
         `<div class="week-grid-wrapper"><div class="week-grid">${cols}</div></div>`;
     }
 
+    // "12–4 PM", "9:30 AM–1 PM" — compact Eastern-time range for the artist calendar
+    function calFmtRange(startMs, endMs) {
+      const parts = ms => {
+        const p = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' })
+          .formatToParts(new Date(ms));
+        const get = t => p.find(x => x.type === t)?.value;
+        const min = get('minute');
+        return { time: get('hour') + (min !== '00' ? ':' + min : ''), ampm: get('dayPeriod') };
+      };
+      const a = parts(startMs), b = parts(endMs);
+      return a.ampm === b.ampm ? `${a.time}–${b.time} ${b.ampm}` : `${a.time} ${a.ampm}–${b.time} ${b.ampm}`;
+    }
+
+    // Artist's own overview, so it's condensed: each run of open time is one block and
+    // each run of booked time (plus its buffer) is one block — unlike the client page,
+    // which lists every bookable start.
     function calRenderDaySlots(slots) {
       if (!slots || slots.length === 0) return `<div class="week-no-slots">—</div>`;
 
       let html = '';
       let i = 0;
       while (i < slots.length) {
-        const slot = slots[i];
-        if (slot.type === 'busy') {
-          let j = i + 1;
-          while (j < slots.length && slots[j].type === 'busy') j++;
-          const count     = j - i;
-          const height    = count * CAL_SLOT_H + (count - 1) * CAL_SLOT_GAP;
-          const blockStart = new Date(slots[i].start).getTime();
-          const blockEnd   = new Date(slots[j - 1].end).getTime();
-          // Find events overlapping this busy block
-          const overlapping = calEvents.filter(e =>
-            new Date(e.start).getTime() < blockEnd &&
-            new Date(e.end).getTime()   > blockStart
-          );
-          const label = overlapping.length
-            ? overlapping.map(e => esc(e.title)).join('<br>')
-            : 'Booked';
-          html += `<div class="busy-block" style="height:${height}px; text-transform:none; letter-spacing:normal; align-items:flex-start; padding:4px 6px; font-size:10px; overflow:hidden;">${label}</div>`;
-          i = j;
+        const open = slots[i].type === 'available';
+        let j = i + 1;
+        while (j < slots.length && (slots[j].type === 'available') === open) j++;
+
+        const runStart = new Date(slots[i].start).getTime();
+        // Slots are 30-min starts; the run ends 30 min after its last start
+        const runEnd   = new Date(slots[j - 1].start).getTime() + 30 * 60 * 1000;
+        if (open) {
+          html += `<div class="cal-open"><span class="cal-block-label">Open</span>${calFmtRange(runStart, runEnd)}</div>`;
         } else {
-          const timeStr = new Date(slot.start).toLocaleTimeString('en-US', {
-            hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York'
-          });
-          // Read-only: same visual as client page but no interaction
-          html += `<button class="slot-btn" style="cursor:default;" tabindex="-1"
-            onclick="return false;" onmouseenter="" onmouseleave=""
-            ${slot.type !== 'available' ? 'disabled' : ''}>${timeStr}</button>`;
-          i++;
+          // Show each event with its own real times (the run also covers buffer time around it)
+          const events = calEvents.filter(e =>
+            new Date(e.start).getTime() < runEnd && new Date(e.end).getTime() > runStart);
+          html += `<div class="busy-block cal-busy">` + (events.length
+            ? events.map(e => {
+                const s = Math.max(new Date(e.start).getTime(), runStart);
+                const f = Math.min(new Date(e.end).getTime(), runEnd);
+                return `<span class="cal-block-label">${esc(e.title)}</span><span>${calFmtRange(s, f)}</span>`;
+              }).join('')
+            : `<span class="cal-block-label">Booked</span><span>${calFmtRange(runStart, runEnd)}</span>`) + `</div>`;
         }
+        i = j;
       }
       return html;
     }
