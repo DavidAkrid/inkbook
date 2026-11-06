@@ -286,7 +286,17 @@ async function getCalendarEventTitles(daysAhead, artistTokens, startFromToday = 
   }));
 }
 
+/**
+ * True when Google refused the stored refresh token (revoked, expired, password
+ * changed, …). The artist must reconnect their calendar; retrying won't help.
+ */
+function isCalendarAuthError(err) {
+  const code = err?.response?.data?.error || '';
+  return code === 'invalid_grant' || /invalid_grant/i.test(err?.message || '');
+}
+
 module.exports = {
+  isCalendarAuthError,
   getCalendarAuthUrl,
   exchangeCodeForTokens,
   getAvailableSlots,

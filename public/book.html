@@ -10,7 +10,7 @@
 </head>
 <body>
   <div class="container">
-    <div class="logo booking-logo">Ink<span style="color: var(--accent);">Book</span></div>
+    <div class="logo booking-logo" id="bookingLogo">Ink<span style="color: var(--accent);">Book</span></div>
 
     <!-- Loading state -->
     <div id="loadingState" class="loading">
@@ -125,6 +125,7 @@
 
         requestData = data;
         InkbookTheme.applyAppearance(data.appearance); // the artist's chosen look
+        setBookingLogo(data.appearance);
 
         // Populate design summary
         if (data.artist_name) {
@@ -148,6 +149,20 @@
         loadSlots();
       } catch (err) {
         showError('Failed to load booking details: ' + err.message);
+      }
+    }
+
+    // The artist's custom header: an uncolored part and a colored part (either may be blank).
+    // The server already sends it in the page; this keeps it right if that step was skipped.
+    function setBookingLogo(a) {
+      if (!a || (!a.header_plain && !a.header_accent)) return;
+      const logo = document.getElementById('bookingLogo');
+      logo.textContent = a.header_plain || '';
+      if (a.header_accent) {
+        const span = document.createElement('span');
+        span.style.color = 'var(--accent)';
+        span.textContent = a.header_accent;
+        logo.appendChild(span);
       }
     }
 

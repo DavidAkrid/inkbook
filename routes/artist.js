@@ -3,7 +3,7 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const supabase = require('../services/supabase');
 const authMiddleware = require('../middleware/auth');
-const { getAvailableSlots, getCalendarEventTitles } = require('../services/google-calendar');
+const { getAvailableSlots, getCalendarEventTitles, isCalendarAuthError } = require('../services/google-calendar');
 const { MODES: TIME_BLOCK_MODES, validateTimeBlocks } = require('../services/time-blocks');
 
 // Keep in sync with public/theme.js
@@ -113,12 +113,12 @@ router.post('/', async (req, res) => {
 router.get('/settings', async (req, res) => {
   const { data, error } = await supabase
     .from('artists')
-    .select('work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print, booking_days_ahead, time_blocks, time_blocks_mode, theme, scanlines, glow, heading_font')
+    .select('work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print, booking_days_ahead, time_blocks, time_blocks_mode, theme, scanlines, glow, heading_font, header_plain, header_accent')
     .eq('id', req.user.id)
     .single();
 
   if (error || !data) {
-    return res.json({ work_start_hour: 9, work_end_hour: 21, days_off: [], buffer_minutes: 0, display_name: '', deposit_enabled: false, deposit_amount: null, deposit_links: [], deposit_description: '', time_blocks: [], time_blocks_mode: 'off', theme: 'classic', scanlines: false, glow: false, heading_font: 'default' });
+    return res.json({ work_start_hour: 9, work_end_hour: 21, days_off: [], buffer_minutes: 0, display_name: '', deposit_enabled: false, deposit_amount: null, deposit_links: [], deposit_description: '', time_blocks: [], time_blocks_mode: 'off', theme: 'classic', scanlines: false, glow: false, heading_font: 'default', header_plain: '', header_accent: '' });
   }
 
   res.json({
@@ -139,12 +139,14 @@ router.get('/settings', async (req, res) => {
     scanlines:            data.scanlines           ?? false,
     glow:                 data.glow                ?? false,
     heading_font:         data.heading_font        ?? 'default',
+    header_plain:         data.header_plain        ?? '',
+    header_accent:        data.header_accent       ?? '',
   });
 });
 
 // POST /api/requests/settings — save artist's scheduling settings
 router.post('/settings', async (req, res) => {
-  const { work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print, booking_days_ahead, time_blocks, time_blocks_mode, theme, scanlines, glow, heading_font } = req.body;
+  const { work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print, booking_days_ahead, time_blocks, time_blocks_mode, theme, scanlines, glow, heading_font, header_plain, header_accent } = req.body;
 
   const start = parseInt(work_start_hour);
   const end   = parseInt(work_end_hour);
@@ -194,6 +196,12 @@ router.post('/settings', async (req, res) => {
   // Validate appearance
   const themeVal = theme || 'classic';
   const fontVal  = heading_font || 'default';
+  // Keep the space between the parts (end of plain / start of colored) so "Moss " + "Maiden" reads "Moss Maiden"
+  const headerPlain  = String(header_plain  || '').trimStart();
+  const headerAccent = String(header_accent || '').trimEnd();
+  if (headerPlain.length > 30 || headerAccent.length > 30) {
+    return res.status(400).json({ error: 'Each header part can be at most 30 characters' });
+  }
   if (!THEMES.includes(themeVal)) return res.status(400).json({ error: 'Unknown theme' });
   if (!HEADING_FONTS.includes(fontVal)) return res.status(400).json({ error: 'Unknown heading font' });
 
@@ -219,8 +227,10 @@ router.post('/settings', async (req, res) => {
       scanlines:            !!scanlines,
       glow:                 !!glow,
       heading_font:         fontVal,
+      header_plain:         headerPlain.trim()  ? headerPlain  : null,
+      header_accent:        headerAccent.trim() ? headerAccent : null,
     }, { onConflict: 'id' })
-    .select('work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print, booking_days_ahead, time_blocks, time_blocks_mode, theme, scanlines, glow, heading_font')
+    .select('work_start_hour, work_end_hour, days_off, buffer_minutes, display_name, deposit_enabled, deposit_amount, deposit_links, deposit_description, deposit_fine_print, booking_days_ahead, time_blocks, time_blocks_mode, theme, scanlines, glow, heading_font, header_plain, header_accent')
     .single();
 
   if (error) return res.status(500).json({ error: error.message });
@@ -257,6 +267,9 @@ router.get('/availability', async (req, res) => {
     ]);
     res.json({ slots, events, days_off: artist.days_off ?? [] });
   } catch (err) {
+    if (isCalendarAuthError(err)) {
+      return res.status(409).json({ error: 'Google Calendar disconnected.', code: 'calendar_disconnected' });
+    }
     console.error('Artist availability error:', err.message);
     res.status(500).json({ error: 'Failed to fetch calendar availability.' });
   }
