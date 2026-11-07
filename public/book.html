@@ -287,6 +287,19 @@
 
       document.getElementById('slotsContainer').innerHTML =
         `<div class="week-grid-wrapper"><div class="week-grid">${cols}</div></div>`;
+      scrollToFirstOpenDay();
+    }
+
+    // On narrow screens the week scrolls sideways. Start it at the first day with an
+    // open time so past days / days off don't make the week look fully booked.
+    function scrollToFirstOpenDay() {
+      const wrapper = document.querySelector('#slotsContainer .week-grid-wrapper');
+      if (!wrapper || wrapper.scrollWidth <= wrapper.clientWidth) return;
+      const firstOpen = [...wrapper.querySelectorAll('.week-col')]
+        .find(col => col.querySelector('.slot-btn:not([disabled])'));
+      if (!firstOpen) return;
+      const offset = firstOpen.getBoundingClientRect().left - wrapper.getBoundingClientRect().left;
+      wrapper.scrollLeft += offset;
     }
 
     function prevWeek() {

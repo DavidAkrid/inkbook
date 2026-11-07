@@ -33,12 +33,21 @@ function validateTimeBlocks(raw, workStartHour, workEndHour) {
 /**
  * The blocks that apply to a booking request, or null for normal slots.
  * Always uses the artist's CURRENT settings, so edits apply to links already sent.
+ * If the link was limited to some blocks (request.time_blocks), only those that
+ * still exist in settings are used; if none still exist, all current blocks apply.
  */
 function resolveTimeBlocks(request, artist) {
   if (!request?.use_time_blocks) return null;
   if (!artist || (artist.time_blocks_mode || 'off') === 'off') return null;
   const blocks = Array.isArray(artist.time_blocks) ? artist.time_blocks : [];
-  return blocks.length ? blocks : null;
+  if (!blocks.length) return null;
+
+  const picked = Array.isArray(request.time_blocks) ? request.time_blocks : [];
+  if (picked.length) {
+    const subset = blocks.filter(b => picked.some(p => p.start_min === b.start_min && p.end_min === b.end_min));
+    if (subset.length) return subset;
+  }
+  return blocks;
 }
 
 module.exports = { MODES, validateTimeBlocks, resolveTimeBlocks };

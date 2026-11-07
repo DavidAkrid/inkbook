@@ -77,10 +77,16 @@
           <label class="toggle-row" for="use_time_blocks">
             <span>Use Time Blocks <span style="font-weight:400; text-transform:none; letter-spacing:0; color:var(--text-muted); font-size:11px;">(client picks from your set sessions)</span></span>
             <div class="toggle-switch">
-              <input type="checkbox" id="use_time_blocks">
+              <input type="checkbox" id="use_time_blocks" onchange="renderLinkBlocks()">
               <span class="toggle-slider"></span>
             </div>
           </label>
+          <div id="linkBlocksPicker" style="display:none; margin-top: 10px;">
+            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">
+              Sessions this client can pick from (tap to remove):
+            </div>
+            <div id="linkBlocksList" style="display: flex; gap: 6px; flex-wrap: wrap;"></div>
+          </div>
         </div>
 
         <div id="formAlert"></div>
@@ -497,6 +503,13 @@
       const btn = document.getElementById('submitBtn');
       const alertEl = document.getElementById('formAlert');
       alertEl.innerHTML = '';
+
+      const useBlocks = blockSettings.mode !== 'off' && document.getElementById('use_time_blocks').checked;
+      if (useBlocks && pickedLinkBlocks().length === 0) {
+        alertEl.innerHTML = `<div class="alert alert-error">Pick at least one time block, or turn time blocks off for this link.</div>`;
+        return;
+      }
+
       btn.disabled = true;
       btn.textContent = 'Creating…';
 
@@ -508,7 +521,8 @@
             client_name: document.getElementById('client_name').value,
             duration_hours: document.getElementById('duration_hours').value,
             notes: document.getElementById('notes').value,
-            use_time_blocks: blockSettings.mode !== 'off' && document.getElementById('use_time_blocks').checked,
+            use_time_blocks: useBlocks,
+            time_blocks: useBlocks ? pickedLinkBlocks() : undefined,
           }),
         });
         const data = await res.json();
@@ -570,7 +584,11 @@
                   ${r.duration_hours} hr${r.duration_hours !== 1 ? 's' : ''}
                   &middot; Created ${created}
                   &middot; Expires ${expires}
-                  ${r.use_time_blocks ? '&middot; Time blocks' : ''}
+                  ${r.use_time_blocks
+                    ? '&middot; Time blocks' + (Array.isArray(r.time_blocks) && r.time_blocks.length
+                        ? ': ' + r.time_blocks.map(b => `${fmtMin(b.start_min)}–${fmtMin(b.end_min)}`).join(', ')
+                        : '')
+                    : ''}
                 </div>
                 ${r.status !== 'booked' && !isExpired
                   ? `<a class="request-link" href="${url}" target="_blank">${url}</a>`
@@ -792,6 +810,33 @@
       const on = blockSettings.mode !== 'off' && blockSettings.blocks.length > 0;
       document.getElementById('useBlocksGroup').style.display = on ? 'block' : 'none';
       document.getElementById('use_time_blocks').checked = on && blockSettings.mode === 'default_on';
+      renderLinkBlocks();
+    }
+
+    // 720 → "12pm", 990 → "4:30pm", 1440 → "12am"
+    function fmtMin(m) {
+      const h = Math.floor(m / 60) % 24, mm = m % 60;
+      return `${h % 12 || 12}${mm ? ':' + String(mm).padStart(2, '0') : ''}${h < 12 ? 'am' : 'pm'}`;
+    }
+
+    // Pills for this link's blocks, shown while "Use Time Blocks" is on. All start selected.
+    function renderLinkBlocks() {
+      const show = document.getElementById('use_time_blocks').checked && blockSettings.blocks.length > 0;
+      document.getElementById('linkBlocksPicker').style.display = show ? 'block' : 'none';
+      document.getElementById('linkBlocksList').innerHTML = show
+        ? blockSettings.blocks.map(b => `
+            <label class="day-checkbox">
+              <input type="checkbox" checked data-start="${b.start_min}" data-end="${b.end_min}">
+              ${fmtMin(b.start_min)}–${fmtMin(b.end_min)}
+            </label>`).join('')
+        : '';
+    }
+
+    // The blocks still selected for this link
+    function pickedLinkBlocks() {
+      return [...document.querySelectorAll('#linkBlocksList input:checked')].map(i => ({
+        start_min: parseInt(i.dataset.start), end_min: parseInt(i.dataset.end),
+      }));
     }
 
     function toggleBlockSettings() {
