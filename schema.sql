@@ -72,6 +72,8 @@ ALTER TABLE artists ADD COLUMN IF NOT EXISTS booking_days_ahead SMALLINT NOT NUL
 ALTER TABLE artists ADD COLUMN IF NOT EXISTS time_blocks      JSONB NOT NULL DEFAULT '[]';  -- [{start_min, end_min}]
 ALTER TABLE artists ADD COLUMN IF NOT EXISTS time_blocks_mode TEXT  NOT NULL DEFAULT 'off'; -- off | default_on | optional
 ALTER TABLE booking_requests ADD COLUMN IF NOT EXISTS use_time_blocks BOOLEAN NOT NULL DEFAULT false;
+-- The blocks this link is limited to ([{start_min, end_min}]); NULL = all of the artist's blocks
+ALTER TABLE booking_requests ADD COLUMN IF NOT EXISTS time_blocks JSONB;
 
 -- Appearance: the artist's look on their dashboard and their clients' booking pages
 ALTER TABLE artists ADD COLUMN IF NOT EXISTS theme        TEXT    NOT NULL DEFAULT 'classic'; -- classic | sunset | forest | deep-sea | rose | ink | terminal-green

@@ -60,7 +60,7 @@ router.get('/', async (req, res) => {
 
 // POST /api/requests — create a new booking request
 router.post('/', async (req, res) => {
-  const { client_name, duration_hours, notes, expires_in_days, use_time_blocks } = req.body;
+  const { client_name, duration_hours, notes, expires_in_days, use_time_blocks, time_blocks } = req.body;
 
   if (!client_name || !duration_hours) {
     return res.status(400).json({ error: 'client_name and duration_hours are required' });
@@ -78,13 +78,25 @@ router.post('/', async (req, res) => {
 
   // Only honor the checkbox if the artist has time blocks turned on
   let useBlocks = false;
+  let linkBlocks = null; // null = every block in the artist's settings
   if (use_time_blocks) {
     const { data: artist } = await supabase
       .from('artists')
-      .select('time_blocks_mode')
+      .select('time_blocks_mode, time_blocks')
       .eq('id', req.user.id)
       .single();
     useBlocks = !!artist && (artist.time_blocks_mode || 'off') !== 'off';
+
+    // Optional subset of the artist's blocks picked for this link
+    if (useBlocks && Array.isArray(time_blocks)) {
+      const all = Array.isArray(artist.time_blocks) ? artist.time_blocks : [];
+      const picked = all.filter(b => time_blocks.some(t =>
+        parseInt(t?.start_min) === b.start_min && parseInt(t?.end_min) === b.end_min));
+      if (picked.length === 0) {
+        return res.status(400).json({ error: 'Pick at least one time block, or turn time blocks off for this link' });
+      }
+      if (picked.length < all.length) linkBlocks = picked;
+    }
   }
 
   const { data, error } = await supabase
@@ -98,6 +110,8 @@ router.post('/', async (req, res) => {
       status: 'pending',
       expires_at: expiresAt.toISOString(),
       use_time_blocks: useBlocks,
+      // Only sent for a subset, so links still work if the column's migration hasn't run
+      ...(linkBlocks ? { time_blocks: linkBlocks } : {}),
     })
     .select()
     .single();
